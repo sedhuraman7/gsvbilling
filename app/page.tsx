@@ -265,26 +265,61 @@ export default function Home() {
           </div>
         </div>
 
-        {/* 2. Controls */}
-        <div className="bg-white p-6 rounded-2xl shadow-sm border">
-          <h3 className="font-bold text-lg mb-4 flex items-center gap-2">
-            <Settings className="h-5 w-5" /> Owner Controls
-          </h3>
-          <button
-            onClick={handleGenerateBill}
-            className="w-full py-3 bg-green-50 text-green-700 font-bold rounded-xl hover:bg-green-100 transition flex items-center justify-center gap-2 mb-4"
-          >
-            <Zap className="h-5 w-5" /> Generate Bill
-          </button>
+        {/* --- BILL GENERATOR SECTION --- */}
+        <Card className="bg-white border-l-4 border-l-blue-500 shadow-sm">
+          <CardHeader>
+            <CardTitle className="text-lg flex items-center gap-2">
+              <span className="bg-blue-100 p-1 rounded text-blue-600">⚡</span>
+              Bill Calculator
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              <div className="bg-slate-50 p-2 rounded">
+                <p className="text-slate-500 text-xs">Units Consumed</p>
+                <p className="font-bold text-lg">{totalUnits} kWh</p>
+              </div>
+              <div className="bg-slate-50 p-2 rounded">
+                <p className="text-slate-500 text-xs">Est. Cost</p>
+                <p className="font-bold text-lg text-slate-400">₹{calculatedBill}</p>
+              </div>
+            </div>
 
-          <div className="bg-slate-50 p-3 rounded-lg text-xs text-slate-500">
-            <p className="font-bold text-slate-700 mb-1">How it works:</p>
-            <ul className="list-disc pl-4 space-y-1">
-              <li>Telegram Users: Auto-alert via Bot.</li>
-              <li>Email Users: Auto-email via Gmail.</li>
-            </ul>
-          </div>
-        </div>
+            <div className="flex items-center gap-2">
+              <div className="flex-1">
+                <label className="text-xs font-bold text-slate-700">Rate / Unit (₹)</label>
+                <input
+                  type="number"
+                  className="w-full p-2 border rounded font-mono"
+                  value={ratePerUnit}
+                  onChange={(e) => setRatePerUnit(Number(e.target.value))}
+                />
+              </div>
+              <div className="flex-[2]">
+                <label className="text-xs font-bold text-green-700">Final Bill Amount (Editable)</label>
+                <input
+                  type="number"
+                  className="w-full p-2 border-2 border-green-400 rounded font-bold text-lg text-green-800"
+                  placeholder={`₹${calculatedBill}`}
+                  value={manualBillAmount}
+                  onChange={(e) => setManualBillAmount(e.target.value)}
+                />
+              </div>
+            </div>
+
+            <button
+              onClick={handleGenerateBill}
+              disabled={loading}
+              className={`w-full py-3 rounded-lg font-bold text-white shadow-lg transition-all ${loading ? 'bg-slate-400' : 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:scale-[1.02]'}`}
+            >
+              {loading ? 'Sending...' : `🚀 Send Bill (₹${manualBillAmount || calculatedBill})`}
+            </button>
+
+            <div className="text-[10px] text-slate-400 text-center">
+              * Includes automated alerts via Email & Telegram
+            </div>
+          </CardContent>
+        </Card>
 
         {/* 3. Metrics */}
         <div className="md:col-span-3 bg-slate-900 text-white p-6 rounded-2xl shadow-lg mt-2">
