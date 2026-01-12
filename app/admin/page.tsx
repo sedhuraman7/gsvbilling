@@ -77,48 +77,56 @@ export default function SuperAdmin() {
     }
 
     return (
-        <div className="min-h-screen bg-slate-900 text-white p-8">
-            <h1 className="text-3xl font-bold mb-8 text-blue-400">⚡ Super Admin Console</h1>
+        <div className="min-h-screen bg-slate-950 text-white flex flex-col items-center justify-center p-4">
+            <div className="w-full max-w-md space-y-8">
+                <div className="text-center">
+                    <h1 className="text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-cyan-400">
+                        ⚡ Super Admin
+                    </h1>
+                    <p className="text-slate-400 mt-2">Manage Houses & Bind Devices</p>
+                </div>
 
-            <div className="bg-slate-800 p-6 rounded-lg max-w-xl">
-                <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
-                    <span className="bg-blue-600 text-xs px-2 py-1 rounded">NEW</span> Create House & Bind Device
-                </h2>
-                <form onSubmit={handleCreateHouse} className="space-y-4">
-                    <div className="space-y-1">
-                        <label className="text-xs text-slate-400">House Identifier</label>
-                        <input
-                            className="w-full p-3 bg-slate-700 rounded text-white font-mono uppercase focus:ring-2 focus:ring-blue-500 outline-none"
-                            placeholder="e.g. GSV07"
-                            value={newHouseId} onChange={e => setNewHouseId(e.target.value)} required
-                        />
-                    </div>
-
-                    <div className="space-y-1">
-                        <label className="text-xs text-slate-400">Device Hardware ID (MAC)</label>
-                        <input
-                            className="w-full p-3 bg-slate-700 rounded text-yellow-300 font-mono tracking-wide focus:ring-2 focus:ring-yellow-500 outline-none"
-                            placeholder="e.g. A1:B2:C3:D4:E5:F6"
-                            value={deviceId} onChange={e => setDeviceId(e.target.value)}
-                        />
-                        <p className="text-[10px] text-slate-500">Copy this from ESP32 Serial Monitor during setup.</p>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-2">
-                        <div className="space-y-1">
-                            <label className="text-xs text-slate-400">Owner Email</label>
-                            <input className="w-full p-3 bg-slate-700 rounded focus:ring-2 focus:ring-blue-500 outline-none" placeholder="owner@email.com" value={ownerEmail} onChange={e => setOwnerEmail(e.target.value)} required />
+                <div className="bg-slate-900/50 p-8 rounded-2xl border border-slate-800 shadow-2xl backdrop-blur-sm">
+                    <h2 className="text-lg font-semibold mb-6 flex items-center gap-2 text-white">
+                        <span className="bg-blue-500/20 text-blue-400 text-xs px-2 py-1 rounded border border-blue-500/30">NEW</span>
+                        Create & Bind
+                    </h2>
+                    <form onSubmit={handleCreateHouse} className="space-y-5">
+                        <div className="space-y-1.5">
+                            <label className="text-xs font-medium text-slate-400 ml-1">HOUSE IDENTIFIER</label>
+                            <input
+                                className="w-full p-3 bg-slate-950/50 rounded-lg text-white font-mono uppercase border border-slate-700 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-all placeholder:text-slate-600"
+                                placeholder="e.g. GSV07"
+                                value={newHouseId} onChange={e => setNewHouseId(e.target.value)} required
+                            />
                         </div>
-                        <div className="space-y-1">
-                            <label className="text-xs text-slate-400">Login Password</label>
-                            <input className="w-full p-3 bg-slate-700 rounded focus:ring-2 focus:ring-blue-500 outline-none" type="password" placeholder="******" value={ownerPass} onChange={e => setOwnerPass(e.target.value)} required />
-                        </div>
-                    </div>
 
-                    <button type="submit" className="w-full bg-blue-600 hover:bg-blue-500 py-3 rounded-lg font-bold shadow-lg transition-transform hover:scale-[1.02]">
-                        Generate Assets & Link Device
-                    </button>
-                </form>
+                        <div className="space-y-1.5">
+                            <label className="text-xs font-medium text-slate-400 ml-1">DEVICE ID (MAC)</label>
+                            <input
+                                className="w-full p-3 bg-slate-950/50 rounded-lg text-yellow-400 font-mono tracking-wide border border-slate-700 focus:border-yellow-500 focus:ring-1 focus:ring-yellow-500 outline-none transition-all placeholder:text-slate-600"
+                                placeholder="A1:B2:C3:D4:E5:F6"
+                                value={deviceId} onChange={e => setDeviceId(e.target.value)}
+                            />
+                            <p className="text-[10px] text-slate-500 text-right">From ESP32 Serial Monitor</p>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-1.5">
+                                <label className="text-xs font-medium text-slate-400 ml-1">OWNER EMAIL</label>
+                                <input className="w-full p-3 bg-slate-950/50 rounded-lg border border-slate-700 focus:border-blue-500 outline-none placeholder:text-slate-600" placeholder="mail@Owner.com" value={ownerEmail} onChange={e => setOwnerEmail(e.target.value)} required />
+                            </div>
+                            <div className="space-y-1.5">
+                                <label className="text-xs font-medium text-slate-400 ml-1">PASSWORD</label>
+                                <input className="w-full p-3 bg-slate-950/50 rounded-lg border border-slate-700 focus:border-blue-500 outline-none placeholder:text-slate-600" type="password" placeholder="******" value={ownerPass} onChange={e => setOwnerPass(e.target.value)} required />
+                            </div>
+                        </div>
+
+                        <button type="submit" className="w-full bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white py-3.5 rounded-xl font-bold shadow-lg shadow-blue-900/20 active:scale-[0.98] transition-all mt-2">
+                            🚀 Generate Assets
+                        </button>
+                    </form>
+                </div>
             </div>
         </div>
     );
