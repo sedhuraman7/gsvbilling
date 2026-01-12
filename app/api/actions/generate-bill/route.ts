@@ -31,16 +31,24 @@ export async function POST(request: Request) {
         const notificationLog = [];
 
         // 2. Generate Assets
+        // 2. Generate Assets
+        // Use Vercel URL if available, else localhost
+        const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000';
+
         const upiLink = `upi://pay?pa=owner@upi&pn=SmartGridOwner&am=${splitAmount}&cu=INR`;
         const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(upiLink)}`;
+        const invoiceLink = `${baseUrl}/invoice?houseId=${houseId}&user=${encodeURIComponent('Tenant')}&amount=${splitAmount}`;
 
         // 3. Loop through users
         for (const userId in users) {
             const user = users[userId];
+            const userInvoiceLink = `${baseUrl}/invoice?houseId=${houseId}&user=${encodeURIComponent(user.label)}&amount=${splitAmount}`;
+
             const message = `🏠 **BILL ALERT: ${user.label}**\n\n` +
                 `📅 Month: ${month}\n` +
-                `💸 **Your Share: ₹${splitAmount}**\n` +
-                `[Pay Now via UPI](${upiLink})`;
+                `💸 **Your Share: ₹${splitAmount}**\n\n` +
+                `📄 [View & Download Invoice](${userInvoiceLink})\n` +
+                `💳 [Pay Now via UPI](${upiLink})`;
 
             // CASE A: Telegram User
             if (user.chatId) {
@@ -92,7 +100,7 @@ export async function POST(request: Request) {
                                         <a href="${upiLink}" style="background: #10b981; color: white; padding: 15px 30px; text-decoration: none; border-radius: 50px; font-weight: bold; display: inline-block; box-shadow: 0 4px 6px -1px rgba(16, 185, 129, 0.4);">
                                             💸 Pay Now (UPI)
                                         </a>
-                                        <a href="http://localhost:3000/invoice?houseId=${houseId}&user=${encodeURIComponent(user.label)}&amount=${splitAmount}" target="_blank" style="display:block; margin-top:15px; color:#2563eb; text-decoration:underline; font-size:14px; font-weight: bold;">
+                                        <a href="${userInvoiceLink}" target="_blank" style="display:block; margin-top:15px; color:#2563eb; text-decoration:underline; font-size:14px; font-weight: bold;">
                                             📄 View / Download Official Invoice
                                         </a>
                                     </div>

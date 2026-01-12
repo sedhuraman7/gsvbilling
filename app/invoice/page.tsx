@@ -1,117 +1,126 @@
 "use client";
 
+import React, { useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { Suspense, useState, useEffect } from 'react';
+import { Zap, Download } from 'lucide-react';
 
-function InvoiceContent() {
-    const searchParams = useSearchParams();
-    const houseId = searchParams.get('houseId') || 'HOUSE_XXX';
-    const amount = searchParams.get('amount') || '0';
-    const user = searchParams.get('user') || 'Tenant';
-    const date = new Date().toLocaleDateString();
+export default function Invoice() {
+  const searchParams = useSearchParams();
+  const houseId = searchParams.get('houseId');
+  const user = searchParams.get('user');
+  const amount = searchParams.get('amount') || '0';
+  const month = new Date().toLocaleString('default', { month: 'long', year: 'numeric' });
+  const invoiceDate = new Date().toLocaleDateString();
+  const dueDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toLocaleDateString(); // +7 Days
 
-    // Fix Hydration Error: Generate Random ID only on Client
-    const [invId, setInvId] = useState('...');
-    useEffect(() => {
-        setInvId(Math.floor(1000 + Math.random() * 9000).toString());
-    }, []);
+  const handlePrint = () => {
+    window.print();
+  };
 
-    return (
-        <div className="min-h-screen bg-slate-100 p-8 flex justify-center items-start print:bg-white print:p-0">
-            <div className="bg-white w-[210mm] min-h-[297mm] shadow-2xl p-12 relative flex flex-col justify-between print:shadow-none print:w-full">
+  return (
+    <div className="min-h-screen bg-slate-100 p-4 md:p-8 flex justify-center items-start">
+      
+      {/* INVOICE PAPER */}
+      <div className="bg-white p-8 md:p-12 shadow-xl rounded-none md:rounded-lg w-full max-w-3xl print:shadow-none print:w-full print:max-w-none">
+        
+        {/* HEADER */}
+        <div className="flex justify-between items-start border-b-2 border-slate-800 pb-8 mb-8">
+          <div>
+             <div className="flex items-center gap-2 text-blue-600 mb-2">
+                 <Zap className="h-8 w-8 fill-current" />
+                 <span className="text-2xl font-extrabold tracking-tight text-slate-900">SMART GRID</span>
+             </div>
+             <div className="text-slate-500 text-sm space-y-1">
+                 <p>Automated Metering Infrastructure</p>
+                 <p>Chennai, Tamil Nadu</p>
+                 <p>support@smartgrid.com</p>
+             </div>
+          </div>
+          <div className="text-right">
+              <h1 className="text-4xl font-light text-slate-300 uppercase tracking-widest">Invoice</h1>
+              <p className="font-bold text-slate-700 mt-2">#INV-{Math.floor(100000 + Math.random() * 900000)}</p>
+              <p className="text-sm text-slate-500">Date: {invoiceDate}</p>
+          </div>
+        </div>
 
-                {/* HEADER */}
-                <div>
-                    <div className="flex justify-between items-start border-b-2 border-slate-800 pb-8">
-                        <div>
-                            <h1 className="text-4xl font-bold text-slate-900 tracking-wider">INVOICE</h1>
-                            <p className="text-slate-500 mt-1">#INV-{invId}</p>
-                        </div>
-                        <div className="text-right">
-                            <h2 className="text-2xl font-bold text-blue-600">SMART GRID</h2>
-                            <p className="text-sm text-slate-500">Automated Energy Billing System</p>
-                            <p className="text-sm text-slate-500">Chennai, India</p>
-                        </div>
-                    </div>
-
-                    {/* BILL TO */}
-                    <div className="mt-12 flex justify-between">
-                        <div>
-                            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Bill To</p>
-                            <h3 className="text-xl font-bold text-slate-800">{user}</h3>
-                            <p className="text-slate-600">House: {houseId}</p>
-                        </div>
-                        <div className="text-right">
-                            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Date</p>
-                            <h3 className="text-lg font-bold text-slate-800">{date}</h3>
-                            <p className="text-red-500 font-bold text-sm mt-1">Due in 5 Days</p>
-                        </div>
-                    </div>
-
-                    {/* TABLE */}
-                    <div className="mt-12">
-                        <table className="w-full text-left">
-                            <thead>
-                                <tr className="bg-slate-50 border-b border-slate-200">
-                                    <th className="py-4 px-4 font-bold text-slate-600 uppercase text-xs">Description</th>
-                                    <th className="py-4 px-4 font-bold text-slate-600 uppercase text-xs text-right">Amount</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr className="border-b border-slate-100">
-                                    <td className="py-4 px-4 text-slate-800">
-                                        <p className="font-bold">Electricity Usage Charge</p>
-                                        <p className="text-xs text-slate-500">Shared utility cost for {houseId}</p>
-                                    </td>
-                                    <td className="py-4 px-4 text-right font-mono text-slate-800">₹{amount}</td>
-                                </tr>
-                                <tr className="border-b border-slate-100">
-                                    <td className="py-4 px-4 text-slate-800">
-                                        <p className="font-bold">Maintenance / Platform Fee</p>
-                                    </td>
-                                    <td className="py-4 px-4 text-right font-mono text-slate-800">₹0.00</td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-
-                    {/* TOTAL */}
-                    <div className="mt-8 flex justify-end">
-                        <div className="w-64 bg-slate-50 p-6 rounded-lg">
-                            <div className="flex justify-between mb-2">
-                                <span className="text-slate-500 text-sm">Subtotal</span>
-                                <span className="font-mono text-slate-700">₹{amount}</span>
-                            </div>
-                            <div className="flex justify-between pt-4 border-t border-slate-200">
-                                <span className="font-bold text-slate-900 text-xl">Total Due</span>
-                                <span className="font-bold text-blue-600 text-xl">₹{amount}</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                {/* FOOTER */}
-                <div className="text-center border-t border-slate-200 pt-8 mt-12">
-                    <p className="text-slate-900 font-bold mb-2">Thank you for your timely payment!</p>
-                    <p className="text-xs text-slate-400">This is a system-generated invoice.</p>
-
-                    <button
-                        onClick={() => window.print()}
-                        className="mt-8 bg-black text-white px-6 py-2 rounded-full font-bold text-sm hover:scale-105 transition shadow-lg print:hidden"
-                    >
-                        🖨️ Download / Print PDF
-                    </button>
-                </div>
-
+        {/* BILL TO */}
+        <div className="flex justify-between mb-12">
+            <div>
+                <p className="text-xs uppercase font-bold text-slate-400 mb-2">Bill To</p>
+                <h2 className="text-xl font-bold text-slate-800">{user || 'Valued Customer'}</h2>
+                <p className="text-slate-600">House ID: {houseId}</p>
+                <p className="text-slate-600">Tenant / Resident</p>
+            </div>
+            <div className="text-right">
+                <p className="text-xs uppercase font-bold text-slate-400 mb-2">Billing Period</p>
+                <h2 className="text-lg font-bold text-slate-800">{month}</h2>
+                <p className="text-red-500 font-bold text-sm mt-1">Due Date: {dueDate}</p>
             </div>
         </div>
-    );
-}
 
-export default function InvoicePage() {
-    return (
-        <Suspense fallback={<div>Loading Invoice...</div>}>
-            <InvoiceContent />
-        </Suspense>
-    );
+        {/* TABLE */}
+        <table className="w-full mb-12 border-collapse">
+            <thead>
+                <tr className="bg-slate-50 border-b border-slate-200">
+                    <th className="text-left py-4 px-2 font-bold text-slate-600 uppercase text-xs">Description</th>
+                    <th className="text-center py-4 px-2 font-bold text-slate-600 uppercase text-xs">Units / Usage</th>
+                    <th className="text-right py-4 px-2 font-bold text-slate-600 uppercase text-xs">Rate</th>
+                    <th className="text-right py-4 px-2 font-bold text-slate-600 uppercase text-xs">Amount</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr className="border-b border-slate-100">
+                    <td className="py-6 px-2">
+                        <p className="font-bold text-slate-800">Electricity Charges</p>
+                        <p className="text-xs text-slate-500">Monthly consumption split</p>
+                    </td>
+                    <td className="text-center py-6 px-2 text-slate-600">-</td>
+                    <td className="text-right py-6 px-2 text-slate-600">-</td>
+                    <td className="text-right py-6 px-2 font-bold text-slate-800">₹{amount}</td>
+                </tr>
+                <tr>
+                    <td className="py-6 px-2">
+                        <p className="font-bold text-slate-800">Maintenance / Service</p>
+                    </td>
+                    <td className="text-center py-6 px-2 text-slate-600">Fixed</td>
+                    <td className="text-right py-6 px-2 text-slate-600">₹0.00</td>
+                    <td className="text-right py-6 px-2 font-bold text-slate-800">₹0.00</td>
+                </tr>
+            </tbody>
+        </table>
+
+        {/* TOTAL */}
+        <div className="flex justify-end mb-12">
+            <div className="w-1/2">
+                <div className="flex justify-between py-2 border-b border-slate-100">
+                    <span className="text-slate-500">Subtotal</span>
+                    <span className="font-bold text-slate-800">₹{amount}</span>
+                </div>
+                <div className="flex justify-between py-2 border-b border-slate-100">
+                    <span className="text-slate-500">Tax (0%)</span>
+                    <span className="font-bold text-slate-800">₹0.00</span>
+                </div>
+                <div className="flex justify-between py-4 text-xl">
+                    <span className="font-bold text-slate-900">Total Due</span>
+                    <span className="font-bold text-blue-600">₹{amount}</span>
+                </div>
+            </div>
+        </div>
+
+        {/* FOOTER */}
+        <div className="border-t-2 border-slate-100 pt-8 text-center bg-slate-50 -mx-12 -mb-12 p-8 md:rounded-b-lg print:bg-white">
+            <p className="font-bold text-slate-800 mb-2">Thank you for your timely payment.</p>
+            <p className="text-sm text-slate-500 mb-6">This is a system generated invoice.</p>
+            
+            <button 
+                onClick={handlePrint}
+                className="bg-slate-900 text-white px-6 py-2 rounded-full font-bold flex items-center gap-2 mx-auto hover:bg-slate-800 transition-colors print:hidden"
+            >
+                <Download className="h-4 w-4" /> Download PDF
+            </button>
+        </div>
+
+      </div>
+    </div>
+  );
 }
