@@ -14,9 +14,10 @@
 #include <NTPClient.h>
 #include <WiFiUdp.h>
 
-// ================= CONFIGURATION (UPDATE THESE) =================
-const char* ssid = "YOUR_WIFI_SSID";
-const char* password = "YOUR_WIFI_PASSWORD";
+// ================= CONFIGURATION (UPDATE THESE)// --- CONFIGURATION ---
+const char* WIFI_SSID = "YOUR_WIFI_NAME";
+const char* WIFI_PASS = "YOUR_WIFI_PASSWORD";
+const char* HOUSE_ID  = "GSV07"; // Change this for each house
 
 #define FIREBASE_HOST "smart-billing-system-5c276-default-rtdb.firebaseio.com"
 #define FIREBASE_AUTH "AIzaSyCKTC_lcN-4YMtIwr-kWMzgRU7i379-BTg"
