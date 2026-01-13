@@ -74,15 +74,13 @@ export default function SuperAdmin() {
 
     // DELETE HOUSE
     const handleDeleteHouse = async (id: string) => {
-        if (!confirm(`⚠️ DANGER: Are you sure you want to DELETE House: ${id}?\nThis removes all data, tenants, and logs for this owner.`)) return;
-
-        const key = prompt(`Type "${id}" to confirm deletion:`);
-        if (key !== id) return alert("Deletion Cancelled.");
+        if (!confirm(`⚠️ Confirm DELETE House: ${id}?\n\nCannot be undone.`)) return;
 
         try {
-            await set(ref(db, `houses/${id}`), null); // Wipe entire node
+            await set(ref(db, `houses/${id}`), null);
             alert(`🗑️ House ${id} Deleted.`);
-        } catch (e) { alert("Delete failed"); }
+            // Refresh logic handled by onValue
+        } catch (e) { alert("Delete failed. Check console/permissions."); console.error(e); }
     };
 
     if (!isAdmin) {
