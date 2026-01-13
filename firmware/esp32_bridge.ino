@@ -13,8 +13,8 @@ const char* WIFI_PASSWORD = "YOUR_WIFI_PASSWORD";
 #define FIREBASE_AUTH "AIzaSyCKTC_lcN-4YMtIwr-kWMzgRU7i379-BTg" // API Key (If fails, search 'Database Secret' in Firebase Console)
 
 // Device Info
-String deviceId = "";
-String houseId = "NOT_REGISTERED";
+String deviceId; // Will be set to MAC Address in setup()
+String houseId = "NOT_REGISTERED"; // Will be fetched from Firebase
 
 // Meter rotation
 int currentMeter = 1; // 1, 2, or 3
@@ -28,7 +28,9 @@ FirebaseConfig config;
 
 String incomingData = "";
 unsigned long lastFirebaseUpdate = 0;
+unsigned long lastRegistrationCheck = 0; // NEW: For periodic checks
 const unsigned long FIREBASE_INTERVAL = 5000; // 5 seconds
+const unsigned long REGISTRATION_INTERVAL = 10000; // 10 seconds
 
 // Data from Arduino
 float voltage = 0;
@@ -55,7 +57,7 @@ void setup() {
   // Get device ID from MAC address
   deviceId = WiFi.macAddress();
   deviceId.replace(":", "");
-  Serial.print("Device ID: ");
+  Serial.print("Device ID (MAC): ");
   Serial.println(deviceId);
   
   // Connect to WiFi
@@ -100,6 +102,12 @@ void loop() {
   
   // 5. Check for commands from Firebase
   checkFirebaseCommands();
+
+  // 6. Check Registration (If not yet registered)
+  if (houseId == "NOT_REGISTERED" && (millis() - lastRegistrationCheck > REGISTRATION_INTERVAL)) {
+    checkRegistration();
+    lastRegistrationCheck = millis();
+  }
   
   delay(100);
 }
@@ -231,21 +239,30 @@ void sendToFirebase() {
 }
 
 void checkRegistration() {
+  if (WiFi.status() != WL_CONNECTED) return;
+  
   String path = "/devices/" + deviceId;
+  Serial.print("Checking registration for: ");
+  Serial.println(deviceId);
   
   if (Firebase.getString(firebaseData, path + "/houseId")) {
-    houseId = firebaseData.stringData();
-    Serial.print("Registered to house: ");
-    Serial.println(houseId);
+    String fetchedId = firebaseData.stringData();
+    if (fetchedId.length() > 0 && fetchedId != "null") {
+        houseId = fetchedId;
+        Serial.print("✅ Registered to house: ");
+        Serial.println(houseId);
+    } else {
+        Serial.println("⚠️ Found device entry, but no House ID yet.");
+    }
   } else {
-    Serial.println("Not registered. Waiting for registration...");
+    Serial.println("❌ Not registered in DB. Creating waiting entry...");
     
-    // Create device entry
+    // Create device entry if it doesn't exist
     FirebaseJson deviceInfo;
-    deviceInfo.set("mac", WiFi.macAddress());
+    deviceInfo.set("mac", deviceId);
     deviceInfo.set("ip", WiFi.localIP().toString());
-    deviceInfo.set("first_seen", millis());
     deviceInfo.set("status", "waiting_registration");
+    deviceInfo.set("last_seen", millis());
     
     Firebase.setJSON(firebaseData, path, deviceInfo);
   }
