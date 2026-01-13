@@ -2,6 +2,8 @@
 
 import { useSearchParams } from 'next/navigation';
 import { useEffect, useState, Suspense } from 'react';
+import { db } from '@/lib/firebase';
+import { ref, onValue } from 'firebase/database';
 
 function InvoiceContent() {
     const searchParams = useSearchParams();
@@ -10,12 +12,24 @@ function InvoiceContent() {
     const [houseId, setHouseId] = useState('');
     const [user, setUser] = useState('');
     const [amount, setAmount] = useState('0');
+    const [history, setHistory] = useState<any[]>([]);
 
     useEffect(() => {
         const h = searchParams.get('houseId');
         const u = searchParams.get('user');
         const a = searchParams.get('amount');
-        if (h) setHouseId(h);
+        if (h) {
+            setHouseId(h);
+            // Fetch History
+            const historyRef = ref(db, `houses/${h}/billing_history`);
+            onValue(historyRef, (snapshot) => {
+                if (snapshot.exists()) {
+                    const data = snapshot.val();
+                    const list = Object.values(data).reverse(); // Newest first
+                    setHistory(list);
+                }
+            });
+        }
         if (u) setUser(u);
         if (a) setAmount(a);
     }, [searchParams]);
@@ -56,23 +70,11 @@ function InvoiceContent() {
                             <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Billed To</p>
                             <h3 className="text-xl font-bold text-slate-800">{user || 'Valued Tenant'}</h3>
                             <p className="text-slate-500 text-sm mt-1">Unit ID: <span className="bg-blue-50 px-2 py-0.5 rounded text-blue-600 font-mono">{houseId}</span></p>
-                            <p className="text-slate-500 text-sm">Tenant ID: #{Math.floor(Math.random() * 10000)}</p>
                         </div>
                         <div className="text-left md:text-right">
-                            <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Payment Details</p>
-                            <div className="space-y-1">
-                                <div className="flex justify-between md:justify-end gap-4 text-sm">
-                                    <span className="text-slate-500">Subtotal:</span>
-                                    <span className="font-medium">₹{amount}</span>
-                                </div>
-                                <div className="flex justify-between md:justify-end gap-4 text-sm">
-                                    <span className="text-slate-500">Tax (0%):</span>
-                                    <span className="font-medium">₹0</span>
-                                </div>
-                                <div className="flex justify-between md:justify-end gap-4 text-xl font-extrabold text-blue-600 mt-2 border-t pt-2 border-dashed">
-                                    <span>Total:</span>
-                                    <span>₹{amount}</span>
-                                </div>
+                            <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Current Bill</p>
+                            <div className="flex justify-between md:justify-end gap-4 text-3xl font-extrabold text-blue-600 mt-2">
+                                <span>₹{amount}</span>
                             </div>
                         </div>
                     </div>
@@ -89,14 +91,47 @@ function InvoiceContent() {
                             <tbody className="divide-y divide-slate-100">
                                 <tr>
                                     <td className="py-4 px-4 font-medium text-slate-700">
-                                        Electricity Usage Charge
-                                        <div className="text-xs text-slate-400 font-normal">Based on shared meter reading for House {houseId}</div>
+                                        Electricity Split Charge
+                                        <div className="text-xs text-slate-400 font-normal">Current Month Cycle</div>
                                     </td>
                                     <td className="py-4 px-4 text-right font-bold text-slate-800">₹{amount}</td>
                                 </tr>
                             </tbody>
                         </table>
                     </div>
+
+                    {/* HISTORY SECTION (NEW) */}
+                    {history.length > 0 && (
+                        <div className="mb-8 border-t border-slate-100 pt-8 print:hidden">
+                            <h4 className="font-bold text-slate-700 mb-4 flex items-center gap-2">
+                                📜 Past Monthly Bills (History)
+                            </h4>
+                            <div className="overflow-x-auto rounded-lg border border-slate-200">
+                                <table className="w-full text-sm text-left">
+                                    <thead className="text-xs text-slate-500 uppercase bg-slate-50 border-b border-slate-200">
+                                        <tr>
+                                            <th className="px-4 py-3">Month</th>
+                                            <th className="px-4 py-3 text-right">House Total</th>
+                                            <th className="px-4 py-3 text-right">Your Share</th>
+                                            <th className="px-4 py-3 text-center">Generated Date</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-100 bg-white">
+                                        {history.map((h: any, i) => (
+                                            <tr key={i} className="hover:bg-slate-50 transition">
+                                                <td className="px-4 py-3 font-bold text-slate-700">{h.month}</td>
+                                                <td className="px-4 py-3 text-right text-slate-500">₹{h.total_amount}</td>
+                                                <td className="px-4 py-3 text-right font-bold text-blue-600">₹{h.split_amount}</td>
+                                                <td className="px-4 py-3 text-center text-xs text-slate-400">
+                                                    {new Date(h.generated_at).toLocaleDateString()}
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    )}
 
                     {/* FOOTER */}
                     <div className="bg-slate-50 -m-8 md:-m-12 p-8 text-center border-t border-slate-200 mt-8 print:bg-white">

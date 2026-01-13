@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/firebase';
-import { ref, get, child } from "firebase/database";
+import { ref, get, child, push, set } from "firebase/database";
 import { sendEmail } from '@/lib/email';
 import TelegramBot from 'node-telegram-bot-api';
 
@@ -124,6 +124,18 @@ export async function POST(request: Request) {
                 } catch (e) { console.error("Email Fail", e); }
             }
         }
+
+        // 4. SAVE BILL HISTORY (NEW FEATURE)
+        // Create a unique key for this month/bill
+        const historyRef = push(ref(db, `houses/${houseId}/billing_history`));
+        await set(historyRef, {
+            month: month,
+            total_amount: totalAmount,
+            split_amount: splitAmount,
+            active_tenants: activeTenantCount,
+            generated_at: new Date().toISOString()
+        });
+        notificationLog.push("Saved to Billing History");
 
         return NextResponse.json({ success: true, logs: notificationLog });
 

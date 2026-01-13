@@ -32,6 +32,7 @@ export default function Home() {
   });
 
   const [tenants, setTenants] = useState<any>({});
+  const [billingHistory, setBillingHistory] = useState<any[]>([]);
   const [connected, setConnected] = useState(false);
   const [loading, setLoading] = useState(false);
 
@@ -74,7 +75,15 @@ export default function Home() {
       else setTenants({});
     });
 
-    return () => { unsubSystem(); unsubUser(); };
+    const historyRef = ref(db, `houses/${activeHouse}/billing_history`);
+    const unsubHistory = onValue(historyRef, (snapshot) => {
+      if (snapshot.exists()) {
+        const data = snapshot.val();
+        setBillingHistory(Object.values(data).reverse());
+      } else setBillingHistory([]);
+    });
+
+    return () => { unsubSystem(); unsubUser(); unsubHistory(); };
   }, [router]);
 
   // DELETE TENANT
@@ -330,6 +339,40 @@ export default function Home() {
               <span className="text-slate-500 text-[10px] uppercase font-bold">Total Energy</span>
               <div className="text-4xl font-mono text-green-400">{systemData.energy_kwh}<span className="text-lg text-green-600 ml-1">kWh</span></div>
             </div>
+          </div>
+        </div>
+
+        {/* 4. BILLING HISTORY */}
+        <div className="md:col-span-3 bg-white p-6 rounded-2xl shadow-sm border border-slate-200 mt-6 md:mt-0">
+          <h3 className="font-bold text-lg flex items-center gap-2 text-slate-700 mb-4">
+            📜 Billing History
+          </h3>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm text-left">
+              <thead className="bg-slate-50 text-xs text-slate-500 uppercase border-b border-slate-100">
+                <tr>
+                  <th className="px-4 py-3">Month</th>
+                  <th className="px-4 py-3">Total Bill</th>
+                  <th className="px-4 py-3">Tenants</th>
+                  <th className="px-4 py-3 text-right">Per Head</th>
+                  <th className="px-4 py-3 text-right">Generated At</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {billingHistory.length === 0 && (
+                  <tr><td colSpan={5} className="text-center py-4 text-slate-400">No history found. Generate a bill first.</td></tr>
+                )}
+                {billingHistory.map((h: any, i) => (
+                  <tr key={i} className="hover:bg-slate-50">
+                    <td className="px-4 py-3 font-bold text-slate-700">{h.month}</td>
+                    <td className="px-4 py-3 font-mono text-slate-600">₹{h.total_amount}</td>
+                    <td className="px-4 py-3 text-slate-500">{h.active_tenants} Active</td>
+                    <td className="px-4 py-3 text-right font-bold text-blue-600">₹{h.split_amount}</td>
+                    <td className="px-4 py-3 text-right text-xs text-slate-400">{new Date(h.generated_at).toLocaleString()}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </div>
 
