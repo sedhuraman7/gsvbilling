@@ -423,52 +423,77 @@ export default function Home() {
               </>
             )}
 
-            {/* === MODE 2: TNEB SLAB / REVERSE SPLIT === */}
+            {/* === MODE 2: TNEB SLAB === */}
             {billingMethod === 'TNEB' && (
               <>
                 <div className="flex justify-center mb-2">
                   <div className="flex bg-slate-50 rounded-lg scale-90">
-                    <button onClick={() => setCalculationMode('FORWARD')} className={`px-3 py-1 text-[10px] font-bold rounded-md transition-all ${calculationMode === 'FORWARD' ? 'bg-purple-100 text-purple-700' : 'text-slate-400'}`}>Auto</button>
-                    <button onClick={() => setCalculationMode('REVERSE')} className={`px-3 py-1 text-[10px] font-bold rounded-md transition-all ${calculationMode === 'REVERSE' ? 'bg-purple-100 text-purple-700' : 'text-slate-400'}`}>Reverse</button>
+                    <button onClick={() => setCalculationMode('FORWARD')} className={`px-3 py-1 text-[10px] font-bold rounded-md transition-all ${calculationMode === 'FORWARD' ? 'bg-purple-100 text-purple-700' : 'text-slate-400'}`}>Auto (Standard)</button>
+                    <button onClick={() => setCalculationMode('REVERSE')} className={`px-3 py-1 text-[10px] font-bold rounded-md transition-all ${calculationMode === 'REVERSE' ? 'bg-purple-100 text-purple-700' : 'text-slate-400'}`}>Split Bill (Reverse)</button>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
-                  <div className={`p-3 rounded-xl border transition-all ${calculationMode === 'FORWARD' ? 'bg-purple-50 border-purple-200' : 'bg-slate-50 border-slate-100'}`}>
-                    {calculationMode === 'FORWARD' ? (
-                      <>
-                        <p className="text-slate-500 text-[10px] uppercase font-bold tracking-wider">Device Consumption</p>
-                        <p className="font-bold text-2xl text-slate-800">{String(totalUnits)} <span className="text-sm font-normal text-slate-500">kWh</span></p>
-                      </>
-                    ) : (
-                      <>
-                        <p className="text-slate-500 text-[10px] uppercase font-bold tracking-wider">Total House Units</p>
-                        <p className="font-bold text-2xl text-slate-800">{reverseUnits || 0} <span className="text-sm font-normal text-slate-500">kWh</span></p>
-                      </>
-                    )}
+                {/* FORWARD (AUTO) MODE */}
+                {calculationMode === 'FORWARD' && (
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="bg-purple-50 p-3 rounded-xl border border-purple-200">
+                      <p className="text-slate-500 text-[10px] uppercase font-bold tracking-wider">Device Units</p>
+                      <p className="font-bold text-2xl text-slate-800">{String(totalUnits)} <span className="text-sm font-normal text-slate-500">kWh</span></p>
+                    </div>
+                    <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
+                      <p className="text-slate-500 text-[10px] uppercase font-bold tracking-wider">Calc. Cost</p>
+                      <p className="font-bold text-2xl text-slate-800">₹{tnebBillAmount}</p>
+                    </div>
                   </div>
-                  <div className={`p-3 rounded-xl border transition-all ${calculationMode === 'REVERSE' ? 'bg-green-50 border-green-200' : 'bg-slate-50 border-slate-100'}`}>
-                    {calculationMode === 'REVERSE' ? (
-                      <div>
-                        <p className="text-slate-500 text-[10px] uppercase font-bold tracking-wider">Total EB Bill</p>
-                        <div className="flex items-center"><span className="text-xl font-bold text-green-700 mr-1">₹</span><input type="number" className="bg-transparent font-bold text-2xl text-green-700 outline-none w-full" placeholder="Enter ₹" value={reverseAmount} onChange={(e) => handleReverseCalculation(e.target.value)} autoFocus /></div>
+                )}
+
+                {/* REVERSE (SPLIT) MODE */}
+                {calculationMode === 'REVERSE' && (
+                  <div className="space-y-3">
+                    {/* Row 1: Total Bill + Total House Units */}
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="bg-green-50 p-3 rounded-xl border border-green-200">
+                        <p className="text-green-800 text-[10px] uppercase font-bold tracking-wider">1. Total EB Bill</p>
+                        <div className="flex items-center"><span className="text-xl font-bold text-green-700 mr-1">₹</span><input type="number" className="bg-transparent font-bold text-2xl text-green-700 outline-none w-full" placeholder="0" value={reverseAmount} onChange={(e) => handleReverseCalculation(e.target.value)} autoFocus /></div>
                       </div>
-                    ) : (
-                      <>
-                        <p className="text-slate-500 text-[10px] uppercase font-bold tracking-wider">Device Cost</p>
-                        <p className="font-bold text-2xl text-slate-800">₹{tnebBillAmount}</p>
-                      </>
-                    )}
-                  </div>
-                </div>
+                      <div className="bg-slate-50 p-3 rounded-xl border border-slate-100 opacity-70">
+                        <p className="text-slate-500 text-[10px] uppercase font-bold tracking-wider">House Total Units</p>
+                        <p className="font-bold text-xl text-slate-600">{reverseUnits || 0} <span className="text-sm font-normal text-slate-400">calculated</span></p>
+                      </div>
+                    </div>
 
-                <div className="bg-slate-50 p-3 rounded-lg border border-slate-100">
-                  <div className="flex justify-between items-center mb-1"><span className="text-xs font-bold text-slate-500">TNEB Domestic</span><span className="text-[10px] bg-slate-200 text-slate-600 px-1.5 rounded">Bi-Monthly</span></div>
-                  <div className="text-xs text-slate-600 font-mono space-y-1">
-                    <div className="flex justify-between"><span>0-100 units</span> <span className="text-green-600 font-bold">FREE</span></div>
-                    <div className="border-t border-slate-200 my-1 pt-1 flex justify-between font-bold text-purple-700"><span>Applied Slab:</span><span>{calculationMode === 'FORWARD' ? getSlabDetails(Number(totalUnits)) : getSlabDetails(Number(reverseUnits))}</span></div>
+                    {/* Row 2: Device Share Calculation */}
+                    <div className="bg-white p-3 rounded-xl border-2 border-dashed border-purple-200">
+                      <div className="flex justify-between items-center mb-2">
+                        <div className="text-left">
+                          <p className="text-[10px] font-bold text-slate-400 uppercase">2. Device Usage</p>
+                          <p className="text-lg font-bold text-slate-800">{totalUnits} <span className="text-xs font-normal text-slate-400">kWh</span></p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-[10px] font-bold text-purple-600 uppercase">Avg Rate</p>
+                          <p className="text-xs font-mono text-slate-500">₹{(Number(reverseAmount) && Number(reverseUnits)) ? (Number(reverseAmount) / Number(reverseUnits)).toFixed(2) : '0.00'} / unit</p>
+                        </div>
+                      </div>
+                      <div className="pt-2 border-t border-purple-50 flex justify-between items-end">
+                        <span className="text-sm font-bold text-purple-900">Tenant / Device Share</span>
+                        <span className="text-2xl font-bold text-purple-700">₹{((Number(reverseAmount) / Number(reverseUnits) || 0) * Number(totalUnits)).toFixed(0)}</span>
+                      </div>
+                    </div>
+
+                    {/* Row 3: Owner Share */}
+                    <div className="flex justify-between items-center px-2">
+                      <span className="text-xs font-bold text-slate-400">Owner Balance to Pay:</span>
+                      <span className="text-sm font-bold text-slate-600">₹{Math.max(0, Number(reverseAmount) - ((Number(reverseAmount) / Number(reverseUnits) || 0) * Number(totalUnits))).toFixed(0)}</span>
+                    </div>
                   </div>
-                </div>
+                )}
+
+                {calculationMode === 'FORWARD' && (
+                  <div className="bg-slate-50 p-3 rounded-lg border border-slate-100">
+                    <div className="flex justify-between items-center mb-1"><span className="text-xs font-bold text-slate-500">TNEB Domestic</span></div>
+                    <div className="flex justify-between font-mono text-xs font-bold text-purple-700"><span>Applied Slab:</span><span>{getSlabDetails(Number(totalUnits))}</span></div>
+                  </div>
+                )}
               </>
             )}
 
@@ -477,7 +502,7 @@ export default function Home() {
               disabled={loading}
               className={`w-full py-4 rounded-xl font-bold text-white shadow-lg shadow-blue-500/30 transition-all transform active:scale-[0.98] ${loading ? 'bg-slate-400' : 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500'}`}
             >
-              {loading ? 'Processing...' : `🚀 Send Bill (₹${billingMethod === 'FIXED' ? (manualBillAmount || (totalUnits * ratePerUnit).toFixed(0)) : (calculationMode === 'REVERSE' ? reverseAmount : (manualBillAmount || tnebBillAmount))})`}
+              {loading ? 'Processing...' : `🚀 Send Bill (₹${billingMethod === 'FIXED' ? (manualBillAmount || (totalUnits * ratePerUnit).toFixed(0)) : (calculationMode === 'REVERSE' ? ((Number(reverseAmount) / Number(reverseUnits) || 0) * Number(totalUnits)).toFixed(0) : (manualBillAmount || tnebBillAmount))})`}
             </button>
 
             <p className="text-[10px] text-slate-400 text-center leading-relaxed">
