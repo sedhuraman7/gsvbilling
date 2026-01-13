@@ -87,23 +87,34 @@ export default function SuperAdmin() {
 
     if (!isAdmin) {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-slate-100 font-sans">
-                <div className="bg-white p-8 rounded-2xl shadow-xl w-96">
-                    <div className="flex justify-center mb-6">
-                        <div className="bg-blue-100 p-3 rounded-full">
-                            <ShieldAlert className="h-8 w-8 text-blue-600" />
+            <div className="min-h-screen flex items-center justify-center bg-slate-950 font-sans relative overflow-hidden">
+                {/* Background Effects */}
+                <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-indigo-900/20 to-blue-900/20 pointer-events-none"></div>
+                <div className="absolute -top-40 -right-40 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl"></div>
+
+                <div className="bg-slate-900/90 backdrop-blur-md p-8 rounded-2xl shadow-2xl w-96 border border-slate-800 relative z-10">
+                    <div className="flex justify-center mb-8">
+                        <div className="bg-slate-800 p-4 rounded-full ring-4 ring-slate-800/50 shadow-lg">
+                            <ShieldAlert className="h-10 w-10 text-blue-500" />
                         </div>
                     </div>
-                    <h1 className="text-2xl font-bold text-center text-slate-800 mb-6">Super Admin</h1>
-                    <form onSubmit={handleLogin} className="space-y-4">
-                        <input
-                            type="password"
-                            className="w-full p-3 border rounded-xl bg-slate-50 focus:ring-2 ring-blue-500 outline-none"
-                            placeholder="Enter Admin Code"
-                            value={pass}
-                            onChange={(e) => setPass(e.target.value)}
-                        />
-                        <button className="w-full py-3 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 transition">
+
+                    <h1 className="text-3xl font-extrabold text-center text-white mb-2">Super Admin</h1>
+                    <p className="text-center text-slate-400 text-sm mb-8">Restricted Access Portal</p>
+
+                    <form onSubmit={handleLogin} className="space-y-6">
+                        <div className="space-y-2">
+                            <label className="text-xs font-bold text-slate-500 uppercase ml-1">Access Code</label>
+                            <input
+                                type="password"
+                                className="w-full p-3.5 border border-slate-700 rounded-xl bg-slate-950 text-white placeholder-slate-600 focus:ring-2 ring-blue-500 focus:border-transparent outline-none transition-all font-mono text-center tracking-widest text-lg"
+                                placeholder="••••••••"
+                                value={pass}
+                                onChange={(e) => setPass(e.target.value)}
+                                autoFocus
+                            />
+                        </div>
+                        <button className="w-full py-3.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold rounded-xl hover:from-blue-500 hover:to-indigo-500 transition shadow-lg shadow-blue-900/20 active:scale-[0.98]">
                             Unlock Console
                         </button>
                     </form>
