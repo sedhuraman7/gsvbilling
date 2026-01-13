@@ -127,8 +127,26 @@ export default function Home() {
   const totalUnits = systemData.energy_kwh || systemData.total_runtime_today || 0;
   // Calculate based on TNEB logic
   const tnebBillAmount = calculateTNEB(totalUnits);
-  // Legacy support for "manualBillAmount" or calculated
-  const calculatedBill = String(tnebBillAmount);
+  const calculateSplitBill = () => {
+    if (billingMethod === 'FIXED') {
+      return (Number(totalUnits) * ratePerUnit).toFixed(0);
+    }
+    // TNEB Mode
+    if (calculationMode === 'FORWARD') {
+      return String(tnebBillAmount);
+    }
+    // TNEB + Reverse Mode (Split Bill)
+    const totalBill = Number(reverseAmount);
+    const totalHouseUnits = Number(reverseUnits);
+    const deviceUnits = Number(totalUnits);
+    if (totalBill > 0 && totalHouseUnits > 0) {
+      const avgRate = totalBill / totalHouseUnits;
+      return (deviceUnits * avgRate).toFixed(0);
+    }
+    return '0';
+  };
+
+  const calculatedBill = calculateSplitBill();
 
   // AUTH CHECK & DATA FETCH
   useEffect(() => {
@@ -405,7 +423,7 @@ export default function Home() {
               </>
             )}
 
-            {/* === MODE 2: TNEB SLAB (New Logic) === */}
+            {/* === MODE 2: TNEB SLAB / REVERSE SPLIT === */}
             {billingMethod === 'TNEB' && (
               <>
                 <div className="flex justify-center mb-2">
@@ -417,19 +435,29 @@ export default function Home() {
 
                 <div className="grid grid-cols-2 gap-3">
                   <div className={`p-3 rounded-xl border transition-all ${calculationMode === 'FORWARD' ? 'bg-purple-50 border-purple-200' : 'bg-slate-50 border-slate-100'}`}>
-                    <p className="text-slate-500 text-[10px] uppercase font-bold tracking-wider">Consumption</p>
                     {calculationMode === 'FORWARD' ? (
-                      <p className="font-bold text-2xl text-slate-800">{String(totalUnits)} <span className="text-sm font-normal text-slate-500">kWh</span></p>
+                      <>
+                        <p className="text-slate-500 text-[10px] uppercase font-bold tracking-wider">Device Consumption</p>
+                        <p className="font-bold text-2xl text-slate-800">{String(totalUnits)} <span className="text-sm font-normal text-slate-500">kWh</span></p>
+                      </>
                     ) : (
-                      <input type="number" className="bg-transparent font-bold text-2xl text-slate-800 outline-none w-full border-b border-slate-300 focus:border-purple-500 pb-1" placeholder="0" value={reverseUnits} readOnly />
+                      <>
+                        <p className="text-slate-500 text-[10px] uppercase font-bold tracking-wider">Total House Units</p>
+                        <p className="font-bold text-2xl text-slate-800">{reverseUnits || 0} <span className="text-sm font-normal text-slate-500">kWh</span></p>
+                      </>
                     )}
                   </div>
                   <div className={`p-3 rounded-xl border transition-all ${calculationMode === 'REVERSE' ? 'bg-green-50 border-green-200' : 'bg-slate-50 border-slate-100'}`}>
-                    <p className="text-slate-500 text-[10px] uppercase font-bold tracking-wider">Est. Cost</p>
                     {calculationMode === 'REVERSE' ? (
-                      <div className="flex items-center"><span className="text-xl font-bold text-green-700 mr-1">₹</span><input type="number" className="bg-transparent font-bold text-2xl text-green-700 outline-none w-full" placeholder="Enter ₹" value={reverseAmount} onChange={(e) => handleReverseCalculation(e.target.value)} autoFocus /></div>
+                      <div>
+                        <p className="text-slate-500 text-[10px] uppercase font-bold tracking-wider">Total EB Bill</p>
+                        <div className="flex items-center"><span className="text-xl font-bold text-green-700 mr-1">₹</span><input type="number" className="bg-transparent font-bold text-2xl text-green-700 outline-none w-full" placeholder="Enter ₹" value={reverseAmount} onChange={(e) => handleReverseCalculation(e.target.value)} autoFocus /></div>
+                      </div>
                     ) : (
-                      <p className="font-bold text-2xl text-slate-800">₹{tnebBillAmount}</p>
+                      <>
+                        <p className="text-slate-500 text-[10px] uppercase font-bold tracking-wider">Device Cost</p>
+                        <p className="font-bold text-2xl text-slate-800">₹{tnebBillAmount}</p>
+                      </>
                     )}
                   </div>
                 </div>
