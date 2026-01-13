@@ -93,7 +93,7 @@ function InvoiceContent() {
                                         <div className="text-xs text-slate-400 font-normal">Based on shared meter reading for House {houseId}</div>
                                     </td>
                                     <td className="py-4 px-4 text-right font-bold text-slate-800">₹{amount}</td>
-                                </div>
+                                </tr>
                             </tbody>
                         </table>
                     </div>
