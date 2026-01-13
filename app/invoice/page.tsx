@@ -1,126 +1,128 @@
 "use client";
 
-import React, { useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { Zap, Download } from 'lucide-react';
+import { useEffect, useState, Suspense } from 'react';
+
+function InvoiceContent() {
+    const searchParams = useSearchParams();
+
+    // State
+    const [houseId, setHouseId] = useState('');
+    const [user, setUser] = useState('');
+    const [amount, setAmount] = useState('0');
+
+    useEffect(() => {
+        const h = searchParams.get('houseId');
+        const u = searchParams.get('user');
+        const a = searchParams.get('amount');
+        if (h) setHouseId(h);
+        if (u) setUser(u);
+        if (a) setAmount(a);
+    }, [searchParams]);
+
+    const handlePrint = () => {
+        window.print();
+    };
+
+    // Calculate dates
+    const today = new Date();
+    const dueDate = new Date();
+    dueDate.setDate(today.getDate() + 5);
+
+    return (
+        <div className="min-h-screen bg-slate-100 p-4 md:p-8 font-sans print:bg-white print:p-0">
+            {/* INVOICE CONTAINER */}
+            <div className="max-w-3xl mx-auto bg-white shadow-2xl rounded-lg overflow-hidden border border-slate-200 print:shadow-none print:border-none">
+
+                {/* HEADER */}
+                <div className="bg-slate-900 text-white p-8 md:p-12 flex justify-between items-start print:bg-slate-900 print:text-white">
+                    <div>
+                        <h1 className="text-3xl font-extrabold tracking-widest text-blue-400">⚡ SMART GRID</h1>
+                        <p className="text-slate-400 text-sm mt-1">Utility Billing System</p>
+                    </div>
+                    <div className="text-right">
+                        <h2 className="text-4xl font-black text-white/10 uppercase">Invoice</h2>
+                        <div className="mt-2 text-sm text-blue-200">
+                            <p>Date: <span className="font-bold text-white">{today.toLocaleDateString()}</span></p>
+                            <p>Due Date: <span className="font-bold text-red-300">{dueDate.toLocaleDateString()}</span></p>
+                        </div>
+                    </div>
+                </div>
+
+                {/* DETAILS */}
+                <div className="p-8 md:p-12">
+                    <div className="flex flex-col md:flex-row justify-between mb-12 border-b border-slate-100 pb-8 gap-8">
+                        <div>
+                            <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Billed To</p>
+                            <h3 className="text-xl font-bold text-slate-800">{user || 'Valued Tenant'}</h3>
+                            <p className="text-slate-500 text-sm mt-1">Unit ID: <span className="bg-blue-50 px-2 py-0.5 rounded text-blue-600 font-mono">{houseId}</span></p>
+                            <p className="text-slate-500 text-sm">Tenant ID: #{Math.floor(Math.random() * 10000)}</p>
+                        </div>
+                        <div className="text-left md:text-right">
+                            <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Payment Details</p>
+                            <div className="space-y-1">
+                                <div className="flex justify-between md:justify-end gap-4 text-sm">
+                                    <span className="text-slate-500">Subtotal:</span>
+                                    <span className="font-medium">₹{amount}</span>
+                                </div>
+                                <div className="flex justify-between md:justify-end gap-4 text-sm">
+                                    <span className="text-slate-500">Tax (0%):</span>
+                                    <span className="font-medium">₹0</span>
+                                </div>
+                                <div className="flex justify-between md:justify-end gap-4 text-xl font-extrabold text-blue-600 mt-2 border-t pt-2 border-dashed">
+                                    <span>Total:</span>
+                                    <span>₹{amount}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* TABLE */}
+                    <div className="mb-12">
+                        <table className="w-full text-left text-sm">
+                            <thead className="bg-slate-50 text-slate-500 border-y border-slate-200">
+                                <tr>
+                                    <th className="py-3 px-4 font-semibold uppercase text-xs">Description</th>
+                                    <th className="py-3 px-4 font-semibold uppercase text-xs text-right">Amount</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100">
+                                <tr>
+                                    <td className="py-4 px-4 font-medium text-slate-700">
+                                        Electricity Usage Charge
+                                        <div className="text-xs text-slate-400 font-normal">Based on shared meter reading for House {houseId}</div>
+                                    </td>
+                                    <td className="py-4 px-4 text-right font-bold text-slate-800">₹{amount}</td>
+                                </div>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    {/* FOOTER */}
+                    <div className="bg-slate-50 -m-8 md:-m-12 p-8 text-center border-t border-slate-200 mt-8 print:bg-white">
+                        <p className="text-slate-500 text-sm mb-4">Please pay via UPI or Bank Transfer before the due date.</p>
+                        <button
+                            onClick={handlePrint}
+                            className="bg-blue-600 text-white font-bold py-3 px-8 rounded-full shadow-lg hover:bg-blue-700 transition active:scale-95 print:hidden"
+                        >
+                            Download PDF
+                        </button>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    );
+}
 
 export default function Invoice() {
-  const searchParams = useSearchParams();
-  const houseId = searchParams.get('houseId');
-  const user = searchParams.get('user');
-  const amount = searchParams.get('amount') || '0';
-  const month = new Date().toLocaleString('default', { month: 'long', year: 'numeric' });
-  const invoiceDate = new Date().toLocaleDateString();
-  const dueDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toLocaleDateString(); // +7 Days
-
-  const handlePrint = () => {
-    window.print();
-  };
-
-  return (
-    <div className="min-h-screen bg-slate-100 p-4 md:p-8 flex justify-center items-start">
-      
-      {/* INVOICE PAPER */}
-      <div className="bg-white p-8 md:p-12 shadow-xl rounded-none md:rounded-lg w-full max-w-3xl print:shadow-none print:w-full print:max-w-none">
-        
-        {/* HEADER */}
-        <div className="flex justify-between items-start border-b-2 border-slate-800 pb-8 mb-8">
-          <div>
-             <div className="flex items-center gap-2 text-blue-600 mb-2">
-                 <Zap className="h-8 w-8 fill-current" />
-                 <span className="text-2xl font-extrabold tracking-tight text-slate-900">SMART GRID</span>
-             </div>
-             <div className="text-slate-500 text-sm space-y-1">
-                 <p>Automated Metering Infrastructure</p>
-                 <p>Chennai, Tamil Nadu</p>
-                 <p>support@smartgrid.com</p>
-             </div>
-          </div>
-          <div className="text-right">
-              <h1 className="text-4xl font-light text-slate-300 uppercase tracking-widest">Invoice</h1>
-              <p className="font-bold text-slate-700 mt-2">#INV-{Math.floor(100000 + Math.random() * 900000)}</p>
-              <p className="text-sm text-slate-500">Date: {invoiceDate}</p>
-          </div>
-        </div>
-
-        {/* BILL TO */}
-        <div className="flex justify-between mb-12">
-            <div>
-                <p className="text-xs uppercase font-bold text-slate-400 mb-2">Bill To</p>
-                <h2 className="text-xl font-bold text-slate-800">{user || 'Valued Customer'}</h2>
-                <p className="text-slate-600">House ID: {houseId}</p>
-                <p className="text-slate-600">Tenant / Resident</p>
+    return (
+        <Suspense fallback={
+            <div className="min-h-screen flex items-center justify-center bg-slate-50">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
             </div>
-            <div className="text-right">
-                <p className="text-xs uppercase font-bold text-slate-400 mb-2">Billing Period</p>
-                <h2 className="text-lg font-bold text-slate-800">{month}</h2>
-                <p className="text-red-500 font-bold text-sm mt-1">Due Date: {dueDate}</p>
-            </div>
-        </div>
-
-        {/* TABLE */}
-        <table className="w-full mb-12 border-collapse">
-            <thead>
-                <tr className="bg-slate-50 border-b border-slate-200">
-                    <th className="text-left py-4 px-2 font-bold text-slate-600 uppercase text-xs">Description</th>
-                    <th className="text-center py-4 px-2 font-bold text-slate-600 uppercase text-xs">Units / Usage</th>
-                    <th className="text-right py-4 px-2 font-bold text-slate-600 uppercase text-xs">Rate</th>
-                    <th className="text-right py-4 px-2 font-bold text-slate-600 uppercase text-xs">Amount</th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr className="border-b border-slate-100">
-                    <td className="py-6 px-2">
-                        <p className="font-bold text-slate-800">Electricity Charges</p>
-                        <p className="text-xs text-slate-500">Monthly consumption split</p>
-                    </td>
-                    <td className="text-center py-6 px-2 text-slate-600">-</td>
-                    <td className="text-right py-6 px-2 text-slate-600">-</td>
-                    <td className="text-right py-6 px-2 font-bold text-slate-800">₹{amount}</td>
-                </tr>
-                <tr>
-                    <td className="py-6 px-2">
-                        <p className="font-bold text-slate-800">Maintenance / Service</p>
-                    </td>
-                    <td className="text-center py-6 px-2 text-slate-600">Fixed</td>
-                    <td className="text-right py-6 px-2 text-slate-600">₹0.00</td>
-                    <td className="text-right py-6 px-2 font-bold text-slate-800">₹0.00</td>
-                </tr>
-            </tbody>
-        </table>
-
-        {/* TOTAL */}
-        <div className="flex justify-end mb-12">
-            <div className="w-1/2">
-                <div className="flex justify-between py-2 border-b border-slate-100">
-                    <span className="text-slate-500">Subtotal</span>
-                    <span className="font-bold text-slate-800">₹{amount}</span>
-                </div>
-                <div className="flex justify-between py-2 border-b border-slate-100">
-                    <span className="text-slate-500">Tax (0%)</span>
-                    <span className="font-bold text-slate-800">₹0.00</span>
-                </div>
-                <div className="flex justify-between py-4 text-xl">
-                    <span className="font-bold text-slate-900">Total Due</span>
-                    <span className="font-bold text-blue-600">₹{amount}</span>
-                </div>
-            </div>
-        </div>
-
-        {/* FOOTER */}
-        <div className="border-t-2 border-slate-100 pt-8 text-center bg-slate-50 -mx-12 -mb-12 p-8 md:rounded-b-lg print:bg-white">
-            <p className="font-bold text-slate-800 mb-2">Thank you for your timely payment.</p>
-            <p className="text-sm text-slate-500 mb-6">This is a system generated invoice.</p>
-            
-            <button 
-                onClick={handlePrint}
-                className="bg-slate-900 text-white px-6 py-2 rounded-full font-bold flex items-center gap-2 mx-auto hover:bg-slate-800 transition-colors print:hidden"
-            >
-                <Download className="h-4 w-4" /> Download PDF
-            </button>
-        </div>
-
-      </div>
-    </div>
-  );
+        }>
+            <InvoiceContent />
+        </Suspense>
+    );
 }
