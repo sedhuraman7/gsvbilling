@@ -1,133 +1,197 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { db } from '@/lib/firebase';
-import { ref, set, child } from "firebase/database";
-import { Lock } from 'lucide-react';
+import { ref, set, onValue } from "firebase/database";
+import { Lock, LayoutGrid, PlusCircle, ShieldAlert, Trash2 } from 'lucide-react';
 
 export default function SuperAdmin() {
     const [isAuthenticated, setIsAuthenticated] = useState(false);
     const [adminCode, setAdminCode] = useState('');
+    const [isAdmin, setIsAdmin] = useState(false);
+    const [pass, setPass] = useState('');
 
-    const [newHouseId, setNewHouseId] = useState('');
+    const [houseId, setHouseId] = useState('');
     const [ownerPass, setOwnerPass] = useState('');
     const [ownerEmail, setOwnerEmail] = useState('');
     const [deviceId, setDeviceId] = useState(''); // New Device ID / MAC
 
-    const handleAuth = (e: React.FormEvent) => {
+    const [loading, setLoading] = useState(false);
+    const [houses, setHouses] = useState<any[]>([]);
+
+    // FETCH ALL HOUSES
+    useEffect(() => {
+        const housesRef = ref(db, 'houses');
+        const unsub = onValue(housesRef, (snapshot) => {
+            if (snapshot.exists()) {
+                const data = snapshot.val();
+                // Convert object to array for display
+                const houseList = Object.keys(data).map(key => ({
+                    id: key,
+                    ...data[key]?.config // Access config node
+                }));
+                setHouses(houseList);
+            } else {
+                setHouses([]);
+            }
+        });
+        return () => unsub();
+    }, []);
+
+    const handleLogin = (e: React.FormEvent) => {
         e.preventDefault();
-        if (adminCode === 'admin123') setIsAuthenticated(true);
-        else alert('Invalid Admin Code');
+        if (pass === 'admin123') setIsAdmin(true);
+        else alert('Invalid Password');
     };
 
     const handleCreateHouse = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!newHouseId || !ownerEmail || !ownerPass) return;
+        setLoading(true);
+
+        const houseData = {
+            owner_email: ownerEmail,
+            owner_pass: ownerPass,
+            device_id: deviceId || 'MAC_UNKNOWN',
+            created_at: new Date().toISOString()
+        };
 
         try {
-            const config = {
-                password: ownerPass,
-                email: ownerEmail,
-                device_id: deviceId, // Store Unique ID for binding
-                created_at: new Date().toISOString(),
-                active: true
-            };
+            // Save config
+            await set(ref(db, `houses/${houseId}/config`), houseData);
 
-            // Save to DB
-            const dbRef = ref(db);
-            await set(child(dbRef, `houses/${newHouseId.toUpperCase()}/config`), config);
-
-            // SEND EMAIL
-            await fetch('/api/admin/welcome-owner', {
-                method: 'POST',
-                body: JSON.stringify({
-                    email: ownerEmail,
-                    houseId: newHouseId.toUpperCase(),
-                    password: ownerPass
-                })
+            // Initialize system status
+            await set(ref(db, `houses/${houseId}/system_status`), {
+                voltage: 0, current: 0, power: 0, energy_kwh: 0, active_meter: 1
             });
 
-            alert(`✅ House ${newHouseId} Created! Device ID Linked.`);
-            setNewHouseId(''); setOwnerPass(''); setOwnerEmail(''); setDeviceId('');
-        } catch (e) {
-            console.error(e);
-            alert("Error creating house");
+            alert(`✅ House ${houseId} Created! Device ID: ${houseData.device_id}`);
+            setHouseId(''); setOwnerEmail(''); setOwnerPass(''); setDeviceId('');
+        } catch (error) {
+            alert("Failed to create house");
         }
+        setLoading(false);
     };
 
-    if (!isAuthenticated) {
+    // DELETE HOUSE
+    const handleDeleteHouse = async (id: string) => {
+        if (!confirm(`⚠️ DANGER: Are you sure you want to DELETE House: ${id}?\nThis removes all data, tenants, and logs for this owner.`)) return;
+
+        const key = prompt(`Type "${id}" to confirm deletion:`);
+        if (key !== id) return alert("Deletion Cancelled.");
+
+        try {
+            await set(ref(db, `houses/${id}`), null); // Wipe entire node
+            alert(`🗑️ House ${id} Deleted.`);
+        } catch (e) { alert("Delete failed"); }
+    };
+
+    if (!isAdmin) {
         return (
-            <div className="min-h-screen bg-slate-900 flex items-center justify-center">
-                <form onSubmit={handleAuth} className="bg-slate-800 p-8 rounded-lg text-center space-y-4">
-                    <Lock className="w-12 h-12 text-blue-500 mx-auto mb-4" />
-                    <h2 className="text-white font-bold text-xl">Super Admin Access</h2>
-                    <input
-                        type="password"
-                        placeholder="Enter Code"
-                        className="p-2 rounded w-full bg-slate-700 text-white text-center tracking-widest"
-                        value={adminCode}
-                        onChange={e => setAdminCode(e.target.value)}
-                    />
-                    <button type="submit" className="bg-blue-600 text-white px-6 py-2 rounded shadow hover:bg-blue-500 w-full font-bold">
-                        Unlock
-                    </button>
-                </form>
+            <div className="min-h-screen flex items-center justify-center bg-slate-100 font-sans">
+                <div className="bg-white p-8 rounded-2xl shadow-xl w-96">
+                    <div className="flex justify-center mb-6">
+                        <div className="bg-blue-100 p-3 rounded-full">
+                            <ShieldAlert className="h-8 w-8 text-blue-600" />
+                        </div>
+                    </div>
+                    <h1 className="text-2xl font-bold text-center text-slate-800 mb-6">Super Admin</h1>
+                    <form onSubmit={handleLogin} className="space-y-4">
+                        <input
+                            type="password"
+                            className="w-full p-3 border rounded-xl bg-slate-50 focus:ring-2 ring-blue-500 outline-none"
+                            placeholder="Enter Admin Code"
+                            value={pass}
+                            onChange={(e) => setPass(e.target.value)}
+                        />
+                        <button className="w-full py-3 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 transition">
+                            Unlock Console
+                        </button>
+                    </form>
+                </div>
             </div>
         );
     }
 
     return (
-        <div className="min-h-screen bg-slate-950 text-white flex flex-col items-center justify-center p-4">
-            <div className="w-full max-w-md space-y-8">
-                <div className="text-center">
-                    <h1 className="text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-cyan-400">
-                        ⚡ Super Admin
-                    </h1>
-                    <p className="text-slate-400 mt-2">Manage Houses & Bind Devices</p>
-                </div>
+        <div className="min-h-screen bg-slate-50 font-sans p-6 md:p-10">
+            <header className="max-w-4xl mx-auto flex items-center gap-3 mb-8">
+                <div className="bg-blue-600 text-white p-2 rounded-lg"><LayoutGrid className="h-6 w-6" /></div>
+                <h1 className="text-2xl font-bold text-slate-800">Super Admin Console</h1>
+            </header>
 
-                <div className="bg-slate-900/50 p-8 rounded-2xl border border-slate-800 shadow-2xl backdrop-blur-sm">
-                    <h2 className="text-lg font-semibold mb-6 flex items-center gap-2 text-white">
-                        <span className="bg-blue-500/20 text-blue-400 text-xs px-2 py-1 rounded border border-blue-500/30">NEW</span>
-                        Create & Bind
+            <main className="max-w-4xl mx-auto space-y-8">
+
+                {/* 1. CREATE HOUSE CARD */}
+                <div className="bg-white p-8 rounded-2xl shadow-sm border border-slate-200">
+                    <h2 className="text-xl font-bold text-slate-800 mb-6 flex items-center gap-2">
+                        <PlusCircle className="text-green-500" /> Create New House Owner
                     </h2>
-                    <form onSubmit={handleCreateHouse} className="space-y-5">
-                        <div className="space-y-1.5">
-                            <label className="text-xs font-medium text-slate-400 ml-1">HOUSE IDENTIFIER</label>
+                    <form onSubmit={handleCreateHouse} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="col-span-1 md:col-span-2">
+                            <label className="text-xs font-bold text-slate-400 uppercase ml-1">House ID (Unique)</label>
                             <input
-                                className="w-full p-3 bg-slate-950/50 rounded-lg text-white font-mono uppercase border border-slate-700 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-all placeholder:text-slate-600"
-                                placeholder="e.g. GSV07"
-                                value={newHouseId} onChange={e => setNewHouseId(e.target.value)} required
+                                className="w-full p-3 border rounded-xl bg-slate-50 font-mono text-blue-600 font-bold"
+                                placeholder="GSV01"
+                                value={houseId}
+                                onChange={(e) => setHouseId(e.target.value.toUpperCase())}
+                                required
                             />
                         </div>
-
-                        <div className="space-y-1.5">
-                            <label className="text-xs font-medium text-slate-400 ml-1">DEVICE ID (MAC)</label>
+                        <div>
+                            <label className="text-xs font-bold text-slate-400 uppercase ml-1">Owner Email</label>
+                            <input className="w-full p-3 border rounded-xl" placeholder="owner@gmail.com" value={ownerEmail} onChange={(e) => setOwnerEmail(e.target.value)} required type="email" />
+                        </div>
+                        <div>
+                            <label className="text-xs font-bold text-slate-400 uppercase ml-1">Password</label>
+                            <input className="w-full p-3 border rounded-xl" placeholder="Pass123" value={ownerPass} onChange={(e) => setOwnerPass(e.target.value)} required />
+                        </div>
+                        <div className="col-span-1 md:col-span-2">
+                            <label className="text-xs font-bold text-slate-400 uppercase ml-1">Device ID (MAC Address from ESP32)</label>
                             <input
-                                className="w-full p-3 bg-slate-950/50 rounded-lg text-yellow-400 font-mono tracking-wide border border-slate-700 focus:border-yellow-500 focus:ring-1 focus:ring-yellow-500 outline-none transition-all placeholder:text-slate-600"
-                                placeholder="A1:B2:C3:D4:E5:F6"
-                                value={deviceId} onChange={e => setDeviceId(e.target.value)}
+                                className="w-full p-3 border rounded-xl font-mono text-slate-600"
+                                placeholder="E.g. A4:CF:12:..."
+                                value={deviceId}
+                                onChange={(e) => setDeviceId(e.target.value)}
+                                required
                             />
-                            <p className="text-[10px] text-slate-500 text-right">From ESP32 Serial Monitor</p>
                         </div>
-
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="space-y-1.5">
-                                <label className="text-xs font-medium text-slate-400 ml-1">OWNER EMAIL</label>
-                                <input className="w-full p-3 bg-slate-950/50 rounded-lg border border-slate-700 focus:border-blue-500 outline-none placeholder:text-slate-600" placeholder="mail@Owner.com" value={ownerEmail} onChange={e => setOwnerEmail(e.target.value)} required />
-                            </div>
-                            <div className="space-y-1.5">
-                                <label className="text-xs font-medium text-slate-400 ml-1">PASSWORD</label>
-                                <input className="w-full p-3 bg-slate-950/50 rounded-lg border border-slate-700 focus:border-blue-500 outline-none placeholder:text-slate-600" type="password" placeholder="******" value={ownerPass} onChange={e => setOwnerPass(e.target.value)} required />
-                            </div>
-                        </div>
-
-                        <button type="submit" className="w-full bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white py-3.5 rounded-xl font-bold shadow-lg shadow-blue-900/20 active:scale-[0.98] transition-all mt-2">
-                            🚀 Generate Assets
+                        <button type="submit" disabled={loading} className="col-span-1 md:col-span-2 py-4 mt-2 bg-slate-900 text-white font-bold rounded-xl hover:bg-black transition shadow-lg">
+                            {loading ? 'Creating...' : 'Create House Account & Bind Device'}
                         </button>
                     </form>
                 </div>
-            </div>
+
+                {/* 2. MANAGE HOUSES LIST */}
+                <div className="bg-white p-8 rounded-2xl shadow-sm border border-slate-200">
+                    <h2 className="text-xl font-bold text-slate-800 mb-6 flex items-center gap-2">
+                        <ShieldAlert className="text-blue-500" /> Managed Houses ({houses.length})
+                    </h2>
+
+                    <div className="space-y-3">
+                        {houses.length === 0 && <p className="text-slate-400 text-center py-4">No houses registered yet.</p>}
+
+                        {houses.map((house) => (
+                            <div key={house.id} className="flex flex-col md:flex-row justify-between items-center p-4 border rounded-xl bg-slate-50 hover:bg-white transition shadow-sm">
+                                <div className="mb-2 md:mb-0">
+                                    <div className="flex items-center gap-2">
+                                        <div className="font-bold text-lg text-blue-700">{house.id}</div>
+                                        <div className="text-[10px] bg-slate-200 px-2 rounded-full font-mono text-slate-600">{house.device_id || 'No MAC'}</div>
+                                    </div>
+                                    <div className="text-sm text-slate-500">{house.owner_email} | Pass: <span className="font-mono bg-slate-200 px-1 rounded">{house.owner_pass}</span></div>
+                                </div>
+                                <button
+                                    onClick={() => handleDeleteHouse(house.id)}
+                                    className="px-4 py-2 bg-white border border-red-200 text-red-500 font-bold rounded-lg hover:bg-red-50 text-sm flex items-center gap-2"
+                                >
+                                    <Trash2 className="h-4 w-4" /> Remove Access
+                                </button>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+
+            </main>
         </div>
     );
+
 }
