@@ -59,6 +59,12 @@ export default function SuperAdmin() {
             // Save config
             await set(ref(db, `houses/${houseId}/config`), houseData);
 
+            // SAVE DEVICE BINDING (For ESP32 to find House ID)
+            const cleanMac = (deviceId || '').replace(/:/g, ''); // Ensure format matches ESP32 processing
+            if (cleanMac && cleanMac !== 'MAC_UNKNOWN') {
+                await set(ref(db, `devices/${cleanMac}/houseId`), houseId);
+            }
+
             // Initialize system status
             await set(ref(db, `houses/${houseId}/system_status`), {
                 voltage: 0, current: 0, power: 0, energy_kwh: 0, active_meter: 1
