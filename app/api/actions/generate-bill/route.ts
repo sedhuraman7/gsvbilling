@@ -5,7 +5,8 @@ import { ref, get, child } from "firebase/database";
 import { sendEmail } from '@/lib/email';
 import TelegramBot from 'node-telegram-bot-api';
 
-const botToken = "8265634188:AAEIbyRVIlKJ8cF87F33hKsCUivQNsVBQVo";
+// Use Token from ENV (or fallback to hardcoded if env missing during build/runtime edge cases, but ENV is preferred)
+const botToken = process.env.TELEGRAM_BOT_TOKEN || "8265634188:AAEIbyRVIlKJ8cF87F33hKsCUivQNsVBQVo";
 const bot = new TelegramBot(botToken, { polling: false });
 
 export async function POST(request: Request) {
@@ -35,6 +36,9 @@ export async function POST(request: Request) {
         // 2. Generate Assets
         const upiLink = `upi://pay?pa=owner@upi&pn=SmartGridOwner&am=${splitAmount}&cu=INR`;
         const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(upiLink)}`;
+
+        // Base URL for Links
+        const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
 
         // 3. Loop through users
         for (const userId in users) {
@@ -94,7 +98,7 @@ export async function POST(request: Request) {
                                         <a href="${upiLink}" style="background: #10b981; color: white; padding: 15px 30px; text-decoration: none; border-radius: 50px; font-weight: bold; display: inline-block; box-shadow: 0 4px 6px -1px rgba(16, 185, 129, 0.4);">
                                             💸 Pay Now (UPI)
                                         </a>
-                                        <a href="http://localhost:3000/invoice?houseId=${houseId}&user=${encodeURIComponent(user.label)}&amount=${splitAmount}" target="_blank" style="display:block; margin-top:15px; color:#2563eb; text-decoration:underline; font-size:14px; font-weight: bold;">
+                                        <a href="${appUrl}/invoice?houseId=${houseId}&user=${encodeURIComponent(user.label)}&amount=${splitAmount}" target="_blank" style="display:block; margin-top:15px; color:#2563eb; text-decoration:underline; font-size:14px; font-weight: bold;">
                                             📄 View / Download Official Invoice
                                         </a>
                                     </div>

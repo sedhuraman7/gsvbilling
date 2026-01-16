@@ -2,14 +2,20 @@ require('dotenv').config({ path: '.env.local' });
 const TelegramBot = require('node-telegram-bot-api');
 const axios = require('axios');
 
-// V2 Token
-const token = "8265634188:AAEIbyRVIlKJ8cF87F33hKsCUivQNsVBQVo";
+// V2 Token from ENV
+const token = process.env.TELEGRAM_BOT_TOKEN;
+if (!token) {
+    console.error("❌ Error: TELEGRAM_BOT_TOKEN is missing in .env.local");
+    process.exit(1);
+}
+
 const bot = new TelegramBot(token, { polling: true });
 
 // FIREBASE
 const DB_URL = process.env.NEXT_PUBLIC_FIREBASE_DATABASE_URL;
 
-console.log("🤖 Telegram Smart Bot V2 Linker...");
+console.log(`🤖 Telegram Smart Bot Linker Started...`);
+console.log(`Token: ${token.substring(0, 10)}...`);
 
 bot.onText(/\/start/, (msg) => {
     const chatId = msg.chat.id;
@@ -64,6 +70,7 @@ bot.onText(/\/join (.+)/, async (msg, match) => {
 
             await axios.put(`${DB_URL}/houses/${foundHouseId}/tenants/${foundUserId}.json`, updateData);
             bot.sendMessage(chatId, `✅ Connected! Hello ${foundUser.label}. Alerts Enabled.`);
+            console.log(`✅ Linked ${foundUser.label} to ChatID ${chatId}`);
         } else {
             // If code not found, check if it is OLD FORMAT "HOUSE_001"
             if (inputCode.includes("HOUSE_")) {
