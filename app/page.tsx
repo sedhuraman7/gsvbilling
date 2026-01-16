@@ -44,34 +44,45 @@ export default function Home() {
 
   // BILLING STATE
   const [ratePerUnit, setRatePerUnit] = useState(7);
-  const [manualBillAmount, setManualBillAmount] = useState('');
+  const [manualBillAmount, setManualBillAmount] = useState(''); // Serves as "Total Bill" in Reverse mode
   const [includeOwner, setIncludeOwner] = useState(true);
-  const [calcMode, setCalcMode] = useState<'FLAT' | 'TNEB'>('FLAT');
+  const [rateType, setRateType] = useState<'FIXED' | 'TNEB'>('TNEB');
+  const [billMode, setBillMode] = useState<'AUTO' | 'REVERSE'>('AUTO');
 
+  // CALCULATIONS
   // CALCULATIONS
   const totalUnits = systemData.energy_kwh || systemData.total_runtime_today || 0;
 
-  const calculateBillValue = () => {
-    if (calcMode === 'FLAT') return isNaN(totalUnits * ratePerUnit) ? "0" : (totalUnits * ratePerUnit).toFixed(0);
-
-    // TNEB SLAB Logic (Generic TN Tariff 2024 approximation)
-    // 0-100 Free, 101-200@2.25, 201-400@4.5, 401-500@6, >500@8+
-    // Fixed approximation
+  // 1. Calculate Device Cost (Based on FIXED rate or TNEB Slab)
+  const calculateDeviceCost = () => {
+    // FIXED RATE
+    if (rateType === 'FIXED') {
+      return (totalUnits * ratePerUnit).toFixed(0);
+    }
+    // TNEB SLAB
     let u = totalUnits;
     let bill = 0;
     if (u > 100) bill += (Math.min(u, 200) - 100) * 2.25;
     if (u > 200) bill += (Math.min(u, 400) - 200) * 4.50;
     if (u > 400) bill += (Math.min(u, 500) - 400) * 6.00;
-    if (u > 500) bill += (u - 500) * 8.00; // Simplified top tier
-    return bill.toFixed(0);
+    if (u > 500) bill += (u - 500) * 8.00;
+    return (bill + 50).toFixed(0); // + Fixed Charge
   };
-  const calculatedBill = calculateBillValue();
 
+  const deviceCost = calculateDeviceCost();
+
+  // 2. Determine Split Amount
   const uiSplitAmount = (() => {
-    const total = manualBillAmount ? Number(manualBillAmount) : Number(calculatedBill);
+    const totalInput = Number(manualBillAmount) || 0;
+    const devCost = Number(deviceCost);
+
+    // In AUTO: We split the DEVICE COST.
+    // In REVERSE: We split (TOTAL BILL - DEVICE COST).
+    const amountToSplit = billMode === 'AUTO' ? devCost : Math.max(0, totalInput - devCost);
+
     const tenantCount = Object.keys(tenants).length;
     const divider = tenantCount + (includeOwner ? 1 : 0);
-    return divider === 0 ? "0" : (total / divider).toFixed(0);
+    return divider === 0 ? "0" : (amountToSplit / divider).toFixed(0);
   })();
 
   // HEARTBEAT LOGIC
@@ -172,13 +183,20 @@ export default function Home() {
   // GENERATE BILL (NEW LOGIC)
   const handleGenerateBill = async () => {
     if (!houseId) return;
-    const finalAmount = manualBillAmount || calculatedBill;
+
+    // Determine the "Billing Amount" (The amount to be SPLIT)
+    const totalInput = Number(manualBillAmount) || 0;
+    const devCost = Number(deviceCost);
+    const billableAmount = billMode === 'AUTO' ? devCost : Math.max(0, totalInput - devCost);
+
     const currentMonth = new Date().toLocaleString('default', { month: 'long', year: 'numeric' });
 
     // Message construction
     const tenantCount = Object.keys(tenants).length;
     const peopleCount = tenantCount + (includeOwner ? 1 : 0);
-    const msg = `📢 Send Bill of ₹${finalAmount}?\n\nSplit among ${peopleCount} people (${tenantCount} Tenants + ${includeOwner ? 'Owner' : '0'}).\n\nEach Person Pays: ₹${uiSplitAmount}`;
+    const msg = `📢 Send Bill for ₹${billableAmount}?\n\n` +
+      (billMode === 'REVERSE' ? `(Total ₹${totalInput} - Device ₹${devCost})\n` : `(Device Usage Only)\n`) +
+      `Split among ${peopleCount} people.\nEach Person Pays: ₹${uiSplitAmount}`;
 
     if (!confirm(msg)) return;
 
@@ -187,7 +205,7 @@ export default function Home() {
       const res = await fetch('/api/actions/generate-bill', {
         method: 'POST',
         body: JSON.stringify({
-          totalAmount: Number(finalAmount),
+          totalAmount: Number(billableAmount), // Send the SPLITTABLE amount
           month: currentMonth,
           houseId: houseId,
           includeOwner: includeOwner
@@ -300,58 +318,103 @@ export default function Home() {
         {/* 2. BILL CALCULATOR */}
         <Card className="bg-white border-none shadow-xl shadow-blue-900/5 relative overflow-hidden">
           <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 to-indigo-500"></div>
-          <CardHeader>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-lg flex items-center gap-2 text-slate-800">
               <span className="bg-blue-100 p-1.5 rounded-lg text-blue-600"><Zap className="w-4 h-4" /></span>
               Bill Calculator
             </CardTitle>
+
+            {/* RATE TYPE TOGGLE */}
+            <div className="flex bg-slate-100 p-1 rounded-lg">
+              <button onClick={() => setRateType('FIXED')} className={`px-3 py-1 text-xs font-bold rounded-md transition-all ${rateType === 'FIXED' ? 'bg-white shadow text-blue-600' : 'text-slate-500'}`}>Fixed</button>
+              <button onClick={() => setRateType('TNEB')} className={`px-3 py-1 text-xs font-bold rounded-md transition-all ${rateType === 'TNEB' ? 'bg-white shadow text-purple-600' : 'text-slate-500'}`}>TNEB</button>
+            </div>
           </CardHeader>
-          <CardContent className="space-y-5">
-            <div className="grid grid-cols-2 gap-3">
-              <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
-                <p className="text-slate-400 text-[10px] uppercase font-bold tracking-wider">Consumption</p>
-                <p className="font-bold text-xl text-slate-800">{String(totalUnits)} <span className="text-sm font-normal text-slate-500">kWh</span></p>
-              </div>
-              <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
-                <p className="text-slate-400 text-[10px] uppercase font-bold tracking-wider">Est. Cost</p>
-                <p className="font-bold text-xl text-slate-400 line-through Decoration-slate-300">₹{calculatedBill}</p>
+
+          <CardContent className="space-y-6">
+
+            {/* MODE TOGGLE (Auto / Reverse) */}
+            <div className="flex justify-center">
+              <div className="flex bg-slate-100 p-1 rounded-lg shadow-inner">
+                <button onClick={() => setBillMode('AUTO')} className={`px-4 py-1.5 text-xs font-bold rounded-md transition-all ${billMode === 'AUTO' ? 'bg-white shadow text-slate-800' : 'text-slate-400'}`}>Auto</button>
+                <button onClick={() => setBillMode('REVERSE')} className={`px-4 py-1.5 text-xs font-bold rounded-md transition-all ${billMode === 'REVERSE' ? 'bg-purple-100 text-purple-700 shadow border border-purple-200' : 'text-slate-400 hover:text-purple-500'}`}>Reverse</button>
               </div>
             </div>
 
-            <div className="space-y-3 pt-2">
-              {/* MODE TOGGLE */}
-              <div className="flex bg-slate-100 p-1 rounded-lg">
-                <button onClick={() => setCalcMode('FLAT')} className={`flex-1 py-1 text-xs font-bold rounded-md transition-all ${calcMode === 'FLAT' ? 'bg-white shadow text-blue-600' : 'text-slate-500'}`}>Flat Rate</button>
-                <button onClick={() => setCalcMode('TNEB')} className={`flex-1 py-1 text-xs font-bold rounded-md transition-all ${calcMode === 'TNEB' ? 'bg-white shadow text-blue-600' : 'text-slate-500'}`}>TNEB Slab</button>
+            <div className="grid grid-cols-2 gap-4">
+              {/* LEFT: UNITS */}
+              <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 flex flex-col justify-center">
+                <p className="text-slate-400 text-[10px] uppercase font-bold tracking-wider mb-1">Total House Units</p>
+                <div className="flex items-baseline gap-1">
+                  <span className="font-extrabold text-3xl text-slate-800">{String(totalUnits)}</span>
+                  <span className="text-sm font-medium text-slate-500">kWh</span>
+                </div>
               </div>
 
-              {calcMode === 'FLAT' && (
-                <div>
-                  <label className="text-xs font-bold text-slate-600 ml-1">Rate per Unit (₹)</label>
-                  <input
-                    type="number"
-                    className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg font-mono text-sm focus:ring-2 ring-blue-500 outline-none transition-all"
-                    value={ratePerUnit}
-                    onChange={(e) => setRatePerUnit(Number(e.target.value))}
-                  />
+              {/* RIGHT: BILL AMOUNT */}
+              <div className={`p-4 rounded-xl border flex flex-col justify-center transition-all ${billMode === 'REVERSE' ? 'bg-green-50 border-green-200' : 'bg-slate-50 border-slate-100'}`}>
+                <p className={`text-[10px] uppercase font-bold tracking-wider mb-1 ${billMode === 'REVERSE' ? 'text-green-600' : 'text-slate-400'}`}>
+                  {billMode === 'REVERSE' ? 'Total EB Bill (Input)' : 'Device Cost'}
+                </p>
+
+                {billMode === 'REVERSE' ? (
+                  <div className="flex items-center gap-1">
+                    <span className="text-green-600 font-bold text-xl">₹</span>
+                    <input
+                      className="bg-transparent font-extrabold text-3xl text-green-700 w-full outline-none placeholder-green-700/30"
+                      placeholder="0"
+                      value={manualBillAmount}
+                      onChange={(e) => setManualBillAmount(e.target.value)}
+                      type="number"
+                    />
+                  </div>
+                ) : (
+                  <div className="flex items-baseline gap-1">
+                    <span className="font-extrabold text-3xl text-slate-800">₹{deviceCost}</span>
+                    {rateType === 'FIXED' && <span className="text-xs text-slate-400">(Fixed Rate)</span>}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* TNEB SLAB DETAILS (Only if TNEB) */}
+            {rateType === 'TNEB' && (
+              <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 text-xs space-y-2">
+                <div className="flex justify-between items-center">
+                  <span className="font-bold text-slate-600">TNEB Domestic</span>
+                  <span className="bg-slate-200 px-2 py-0.5 rounded text-[10px] font-bold text-slate-500">Bi-Monthly</span>
                 </div>
-              )}
-              <div>
-                <label className="text-xs font-bold text-green-700 ml-1 flex justify-between">
-                  <span>Final Bill Amount</span>
-                  <span className="bg-green-100 text-green-700 px-1.5 rounded text-[10px]">EDITABLE</span>
-                </label>
+                <div className="flex justify-between text-slate-500 font-mono">
+                  <span>0-100 units</span>
+                  <span className="text-green-600 font-bold">FREE</span>
+                </div>
+                <div className="flex justify-between font-mono pt-2 border-t border-dashed border-slate-200">
+                  <span className="font-bold text-purple-700">Applied Slab:</span>
+                  <span className="font-bold text-purple-700">
+                    {totalUnits > 500 ? '>500 (@ ₹8+)' :
+                      totalUnits > 400 ? '401-500 (@ ₹6.00)' :
+                        totalUnits > 200 ? '201-400 (@ ₹4.50)' :
+                          totalUnits > 100 ? '101-200 (@ ₹2.25)' : 'Base Slab'}
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {/* FIXED RATE INPUT (Only if Fixed) */}
+            {rateType === 'FIXED' && (
+              <div className="flex items-center gap-2 bg-slate-50 p-2 rounded-lg border border-slate-100">
+                <label className="text-xs font-bold text-slate-500 whitespace-nowrap">Fixed Rate (₹)</label>
                 <input
                   type="number"
-                  className="w-full p-3 border-2 border-green-400 rounded-xl font-bold text-xl text-green-800 focus:ring-4 ring-green-500/20 outline-none transition-all"
-                  placeholder={`₹${calculatedBill}`}
-                  value={manualBillAmount}
-                  onChange={(e) => setManualBillAmount(e.target.value)}
+                  className="w-full bg-transparent border-b border-slate-200 text-sm font-mono focus:border-blue-500 outline-none"
+                  value={ratePerUnit}
+                  onChange={(e) => setRatePerUnit(Number(e.target.value))}
                 />
               </div>
-            </div>
+            )}
 
-            <div className="flex items-center gap-2 p-2 bg-blue-50 rounded-lg border border-blue-100">
+            {/* OWNER SPLIT CHECKBOX */}
+            <div className="flex items-center gap-2 px-1">
               <input
                 type="checkbox"
                 id="includeOwner"
@@ -359,9 +422,15 @@ export default function Home() {
                 onChange={(e) => setIncludeOwner(e.target.checked)}
                 className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
               />
-              <label htmlFor="includeOwner" className="text-xs font-bold text-slate-700 cursor-pointer select-none">
-                Include Owner in Split? <span className="text-blue-500 font-normal">( Pays ₹{uiSplitAmount} )</span>
-              </label>
+              <div className="flex flex-col leading-tight">
+                <label htmlFor="includeOwner" className="text-xs font-bold text-slate-700 cursor-pointer select-none">
+                  Include Owner in Split?
+                </label>
+                <span className="text-[10px] text-blue-500 font-medium">
+                  Each person pays: <span className="font-bold">₹{uiSplitAmount}</span>
+                  {billMode === 'REVERSE' && <span className="text-slate-400 ml-1">(Total - Device)</span>}
+                </span>
+              </div>
             </div>
 
 
@@ -370,7 +439,7 @@ export default function Home() {
               disabled={loading}
               className={`w-full py-4 rounded-xl font-bold text-white shadow-lg shadow-blue-500/30 transition-all transform active:scale-[0.98] ${loading ? 'bg-slate-400' : 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500'}`}
             >
-              {loading ? 'Processing...' : `🚀 Send Bill (₹${manualBillAmount || calculatedBill})`}
+              {loading ? 'Processing...' : `🚀 Send Bill (₹${billMode === 'REVERSE' ? manualBillAmount : deviceCost})`}
             </button>
 
             <p className="text-[10px] text-slate-400 text-center leading-relaxed">
