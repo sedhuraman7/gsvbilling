@@ -149,7 +149,7 @@ export default function Home() {
   const calculatedBill = calculateSplitBill();
 
   // HEARTBEAT LOGIC
-  const [lastUpdate, setLastUpdate] = useState(0);
+  const [lastUpdate, setLastUpdate] = useState(Date.now()); // Start with optimistic "Online"
 
   // AUTH CHECK & DATA FETCH
   useEffect(() => {
@@ -190,7 +190,7 @@ export default function Home() {
 
     // Heartbeat Checker
     const interval = setInterval(() => {
-      if (Date.now() - lastUpdate > 12000) { // 12 Seconds Timeout
+      if (Date.now() - lastUpdate > 25000) {
         setConnected(false);
       } else {
         setConnected(true);
