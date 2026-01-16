@@ -62,11 +62,12 @@ export default function Home() {
     // TNEB SLAB
     let u = totalUnits;
     let bill = 0;
+    if (u === 0) return "0";
     if (u > 100) bill += (Math.min(u, 200) - 100) * 2.25;
     if (u > 200) bill += (Math.min(u, 400) - 200) * 4.50;
     if (u > 400) bill += (Math.min(u, 500) - 400) * 6.00;
     if (u > 500) bill += (u - 500) * 8.00;
-    return (bill + 50).toFixed(0); // + Fixed Charge
+    return bill.toFixed(0);
   };
 
   const deviceCost = calculateDeviceCost();
