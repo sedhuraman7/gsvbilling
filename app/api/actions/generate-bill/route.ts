@@ -6,7 +6,7 @@ import { sendEmail } from '@/lib/email';
 import TelegramBot from 'node-telegram-bot-api';
 
 // Use Token from ENV (or fallback to hardcoded if env missing during build/runtime edge cases, but ENV is preferred)
-const botToken = process.env.TELEGRAM_BOT_TOKEN || "8265634188:AAEIbyRVIlKJ8cF87F33hKsCUivQNsVBQVo";
+const botToken = process.env.TELEGRAM_BOT_TOKEN || "8537233654:AAGxhu2rsL6CNEOurDGLfrtNSt0FeDPmPVI";
 const bot = new TelegramBot(botToken, { polling: false });
 
 export async function POST(request: Request) {
