@@ -32,12 +32,17 @@ export default function Login() {
 
             if (mode === 'OWNER') {
                 const snapshot = await get(child(dbRef, `houses/${houseId.toUpperCase()}/config`));
-                if (snapshot.exists() && snapshot.val().password === password) {
-                    sessionStorage.setItem('active_house_id', houseId.toUpperCase());
-                    sessionStorage.setItem('role', 'OWNER');
-                    router.push('/');
+                if (snapshot.exists()) {
+                    const data = snapshot.val();
+                    if (data.owner_pass === password) {
+                        sessionStorage.setItem('active_house_id', houseId.toUpperCase());
+                        sessionStorage.setItem('role', 'OWNER');
+                        router.push('/');
+                    } else {
+                        setError(`Password Wrong. (DB expects: ${data.owner_pass})`);
+                    }
                 } else {
-                    setError('Invalid Owner Credentials.');
+                    setError(`House ID '${houseId.toUpperCase()}' Not Found in DB.`);
                 }
             }
             else {
