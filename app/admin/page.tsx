@@ -70,7 +70,20 @@ export default function SuperAdmin() {
                 voltage: 0, current: 0, power: 0, energy_kwh: 0, active_meter: 1
             });
 
-            alert(`✅ House ${houseId} Created! Device ID: ${houseData.device_id}`);
+            // SEND EMAIL to Owner
+            try {
+                await fetch('/api/welcome-owner', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        email: ownerEmail,
+                        password: ownerPass,
+                        houseId: houseId,
+                        deviceId: deviceId || 'MAC_UNKNOWN'
+                    })
+                });
+            } catch (err) { console.error("Email API Failed (Non-critical)", err); }
+
+            alert(`✅ House ${houseId} Created! Device ID: ${houseData.device_id}\n📧 Welcome Email Sent!`);
             setHouseId(''); setOwnerEmail(''); setOwnerPass(''); setDeviceId('');
         } catch (error) {
             alert("Failed to create house");

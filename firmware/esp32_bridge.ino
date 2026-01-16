@@ -109,6 +109,21 @@ void setup() {
 
 // ================= MAIN LOOP =================
 void loop() {
+  // 0. Maintain WiFi Connection
+  if (WiFi.status() != WL_CONNECTED) {
+    Serial.println("WiFi Lost! Reconnecting...");
+    WiFi.disconnect();
+    WiFi.reconnect();
+    delay(500); // Short delay
+    
+    // If still fails, try full connect check
+    unsigned long start = millis();
+    while (WiFi.status() != WL_CONNECTED && millis() - start < 5000) {
+        delay(500); Serial.print(".");
+    }
+    if (WiFi.status() == WL_CONNECTED) Serial.println("\nReconnected!");
+  }
+
   // Handle DNS requests (captive portal)
   dnsServer.processNextRequest();
   
