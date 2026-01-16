@@ -148,6 +148,9 @@ export default function Home() {
 
   const calculatedBill = calculateSplitBill();
 
+  // HEARTBEAT LOGIC
+  const [lastUpdate, setLastUpdate] = useState(0);
+
   // AUTH CHECK & DATA FETCH
   useEffect(() => {
     // Only run on client
@@ -165,8 +168,8 @@ export default function Home() {
       if (snapshot.exists()) {
         const val = snapshot.val();
         setSystemData(prev => ({ ...prev, ...val }));
-        setConnected(true);
-      } else setConnected(false);
+        setLastUpdate(Date.now()); // Update heartbeat
+      }
     });
 
     const userRef = ref(db, `houses/${activeHouse}/tenants`);
@@ -177,16 +180,25 @@ export default function Home() {
 
     const historyRef = ref(db, `houses/${activeHouse}/billing_history`);
     const unsubHistory = onValue(historyRef, (snapshot) => {
+      // ... (existing history logic)
       if (snapshot.exists()) {
         const data = snapshot.val();
-        // Convert object to array
         const list = Object.values(data).reverse();
         setBillingHistory(list);
       } else setBillingHistory([]);
     });
 
-    return () => { unsubSystem(); unsubUser(); unsubHistory(); };
-  }, [router]);
+    // Heartbeat Checker
+    const interval = setInterval(() => {
+      if (Date.now() - lastUpdate > 12000) { // 12 Seconds Timeout
+        setConnected(false);
+      } else {
+        setConnected(true);
+      }
+    }, 1000);
+
+    return () => { unsubSystem(); unsubUser(); unsubHistory(); clearInterval(interval); };
+  }, [router, lastUpdate]);
 
   // DELETE TENANT
   const handleDeleteTenant = async (chatId: string, name: string) => {
