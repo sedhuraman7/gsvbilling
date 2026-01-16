@@ -45,108 +45,18 @@ export default function Home() {
   // BILLING STATE
   const [ratePerUnit, setRatePerUnit] = useState(7);
   const [manualBillAmount, setManualBillAmount] = useState('');
-
-  // NEW TNEB STATES
-  const [billingMethod, setBillingMethod] = useState<'FIXED' | 'TNEB'>('FIXED');
-  const [calculationMode, setCalculationMode] = useState<'FORWARD' | 'REVERSE'>('FORWARD');
-  const [reverseAmount, setReverseAmount] = useState('');
-  const [reverseUnits, setReverseUnits] = useState('');
-
-  // TNEB UTILITY FUNCTIONS
-  const calculateTNEB = (units: number) => {
-    let bill = 0;
-    if (units <= 100) return 0;
-
-    // Slab 1: 101-200 @ 2.25
-    if (units > 100) {
-      const slabUnits = Math.min(units, 200) - 100;
-      bill += slabUnits * 2.25;
-    }
-    // Slab 2: 201-400 @ 4.50
-    if (units > 200) {
-      const slabUnits = Math.min(units, 400) - 200;
-      bill += slabUnits * 4.50;
-    }
-    // Slab 3: 401-500 @ 6.00
-    if (units > 400) {
-      const slabUnits = Math.min(units, 500) - 400;
-      bill += slabUnits * 6.00;
-    }
-    // Slab 4: 501-600 @ 8.00
-    if (units > 500) {
-      const slabUnits = Math.min(units, 600) - 500;
-      bill += slabUnits * 8.00;
-    }
-    // Slab 5: 601-800 @ 9.00
-    if (units > 600) {
-      const slabUnits = Math.min(units, 800) - 600;
-      bill += slabUnits * 9.00;
-    }
-    // Slab 6: 801-1000 @ 10.00
-    if (units > 800) {
-      const slabUnits = Math.min(units, 1000) - 800;
-      bill += slabUnits * 10.00;
-    }
-    // Slab 7: >1000 @ 11.00
-    if (units > 1000) {
-      const slabUnits = units - 1000;
-      bill += slabUnits * 11.00;
-    }
-    return Math.round(bill);
-  };
-
-  const getSlabDetails = (units: number) => {
-    if (units <= 100) return "0-100 (Free)";
-    if (units <= 200) return "101-200 (@ ₹2.25)";
-    if (units <= 400) return "201-400 (@ ₹4.50)";
-    if (units <= 500) return "401-500 (@ ₹6.00)";
-    if (units <= 600) return "501-600 (@ ₹8.00)";
-    if (units <= 800) return "601-800 (@ ₹9.00)";
-    if (units <= 1000) return "801-1000 (@ ₹10.00)";
-    return ">1000 (@ ₹11.00)";
-  };
-
-  // REVERSE CALCULATION HANDLER
-  const handleReverseCalculation = (amtStr: string) => {
-    setReverseAmount(amtStr);
-    const amt = Number(amtStr);
-    if (!amt || amt <= 0) { setReverseUnits('0'); return; }
-
-    let u = 0;
-    for (let i = 100; i <= 10000; i++) {
-      if (calculateTNEB(i) >= amt) {
-        u = i;
-        break;
-      }
-    }
-    setReverseUnits(String(u));
-  };
+  const [includeOwner, setIncludeOwner] = useState(true);
 
   // CALCULATIONS
-  // Use energy_kwh if available, else proxy from runtime
   const totalUnits = systemData.energy_kwh || systemData.total_runtime_today || 0;
-  // Calculate based on TNEB logic
-  const tnebBillAmount = calculateTNEB(totalUnits);
-  const calculateSplitBill = () => {
-    if (billingMethod === 'FIXED') {
-      return (Number(totalUnits) * ratePerUnit).toFixed(0);
-    }
-    // TNEB Mode
-    if (calculationMode === 'FORWARD') {
-      return String(tnebBillAmount);
-    }
-    // TNEB + Reverse Mode (Split Bill)
-    const totalBill = Number(reverseAmount);
-    const totalHouseUnits = Number(reverseUnits);
-    const deviceUnits = Number(totalUnits);
-    if (totalBill > 0 && totalHouseUnits > 0) {
-      const avgRate = totalBill / totalHouseUnits;
-      return (deviceUnits * avgRate).toFixed(0);
-    }
-    return '0';
-  };
+  const calculatedBill = isNaN(totalUnits * ratePerUnit) ? "0" : (totalUnits * ratePerUnit).toFixed(0);
 
-  const calculatedBill = calculateSplitBill();
+  const uiSplitAmount = (() => {
+    const total = manualBillAmount ? Number(manualBillAmount) : Number(calculatedBill);
+    const tenantCount = Object.keys(tenants).length;
+    const divider = tenantCount + (includeOwner ? 1 : 0);
+    return divider === 0 ? "0" : (total / divider).toFixed(0);
+  })();
 
   // HEARTBEAT LOGIC
   const [lastUpdate, setLastUpdate] = useState(Date.now()); // Start with optimistic "Online"
@@ -188,7 +98,7 @@ export default function Home() {
       } else setBillingHistory([]);
     });
 
-    // Heartbeat Checker
+    // Heartbeat Checker (Increased Tolerance to 25s)
     const interval = setInterval(() => {
       if (Date.now() - lastUpdate > 25000) {
         setConnected(false);
@@ -249,7 +159,12 @@ export default function Home() {
     const finalAmount = manualBillAmount || calculatedBill;
     const currentMonth = new Date().toLocaleString('default', { month: 'long', year: 'numeric' });
 
-    if (!confirm(`📢 Send Monthly Bill of ₹${finalAmount} to all ${Object.keys(tenants).length} tenants?`)) return;
+    // Message construction
+    const tenantCount = Object.keys(tenants).length;
+    const peopleCount = tenantCount + (includeOwner ? 1 : 0);
+    const msg = `📢 Send Bill of ₹${finalAmount}?\n\nSplit among ${peopleCount} people (${tenantCount} Tenants + ${includeOwner ? 'Owner' : '0'}).\n\nEach Person Pays: ₹${uiSplitAmount}`;
+
+    if (!confirm(msg)) return;
 
     setLoading(true);
     try {
@@ -258,7 +173,8 @@ export default function Home() {
         body: JSON.stringify({
           totalAmount: Number(finalAmount),
           month: currentMonth,
-          houseId: houseId
+          houseId: houseId,
+          includeOwner: includeOwner
         })
       });
       const data = await res.json();
@@ -365,156 +281,72 @@ export default function Home() {
           </div>
         </div>
 
-        {/* 2. BILL CALCULATOR (Swappable) */}
+        {/* 2. BILL CALCULATOR */}
         <Card className="bg-white border-none shadow-xl shadow-blue-900/5 relative overflow-hidden">
           <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 to-indigo-500"></div>
           <CardHeader>
-            <CardTitle className="text-lg flex justify-between items-center text-slate-800">
-              <div className="flex items-center gap-2">
-                <span className="bg-blue-100 p-1.5 rounded-lg text-blue-600"><Zap className="w-4 h-4" /></span>
-                Bill Calculator
-              </div>
-
-              {/* METHOD TOGGLE */}
-              <div className="flex bg-slate-100 rounded-lg p-1">
-                <button
-                  onClick={() => setBillingMethod('FIXED')}
-                  className={`px-3 py-1 text-xs font-bold rounded-md transition-all ${billingMethod === 'FIXED' ? 'bg-white shadow text-blue-600' : 'text-slate-400 hover:text-slate-600'}`}
-                >
-                  Fixed
-                </button>
-                <button
-                  onClick={() => setBillingMethod('TNEB')}
-                  className={`px-3 py-1 text-xs font-bold rounded-md transition-all ${billingMethod === 'TNEB' ? 'bg-white shadow text-purple-600' : 'text-slate-400 hover:text-slate-600'}`}
-                >
-                  TNEB
-                </button>
-              </div>
+            <CardTitle className="text-lg flex items-center gap-2 text-slate-800">
+              <span className="bg-blue-100 p-1.5 rounded-lg text-blue-600"><Zap className="w-4 h-4" /></span>
+              Bill Calculator
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-5">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
+                <p className="text-slate-400 text-[10px] uppercase font-bold tracking-wider">Consumption</p>
+                <p className="font-bold text-xl text-slate-800">{String(totalUnits)} <span className="text-sm font-normal text-slate-500">kWh</span></p>
+              </div>
+              <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
+                <p className="text-slate-400 text-[10px] uppercase font-bold tracking-wider">Est. Cost</p>
+                <p className="font-bold text-xl text-slate-400 line-through Decoration-slate-300">₹{calculatedBill}</p>
+              </div>
+            </div>
 
-            {/* === MODE 1: SIMPLE FIXED RATE (Old Page Style) === */}
-            {billingMethod === 'FIXED' && (
-              <>
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
-                    <p className="text-slate-400 text-[10px] uppercase font-bold tracking-wider">Consumption</p>
-                    <p className="font-bold text-xl text-slate-800">{String(totalUnits)} <span className="text-sm font-normal text-slate-500">kWh</span></p>
-                  </div>
-                  <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
-                    <p className="text-slate-400 text-[10px] uppercase font-bold tracking-wider">Est. Cost</p>
-                    <p className="font-bold text-xl text-slate-400 line-through Decoration-slate-300">₹{(totalUnits * ratePerUnit).toFixed(0)}</p>
-                  </div>
-                </div>
+            <div className="space-y-3 pt-2">
+              <div>
+                <label className="text-xs font-bold text-slate-600 ml-1">Rate per Unit (₹)</label>
+                <input
+                  type="number"
+                  className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg font-mono text-sm focus:ring-2 ring-blue-500 outline-none transition-all"
+                  value={ratePerUnit}
+                  onChange={(e) => setRatePerUnit(Number(e.target.value))}
+                />
+              </div>
+              <div>
+                <label className="text-xs font-bold text-green-700 ml-1 flex justify-between">
+                  <span>Final Bill Amount</span>
+                  <span className="bg-green-100 text-green-700 px-1.5 rounded text-[10px]">EDITABLE</span>
+                </label>
+                <input
+                  type="number"
+                  className="w-full p-3 border-2 border-green-400 rounded-xl font-bold text-xl text-green-800 focus:ring-4 ring-green-500/20 outline-none transition-all"
+                  placeholder={`₹${calculatedBill}`}
+                  value={manualBillAmount}
+                  onChange={(e) => setManualBillAmount(e.target.value)}
+                />
+              </div>
+            </div>
 
-                <div className="space-y-3 pt-2">
-                  <div>
-                    <label className="text-xs font-bold text-slate-600 ml-1">Rate per Unit (₹)</label>
-                    <input
-                      type="number"
-                      className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg font-mono text-sm focus:ring-2 ring-blue-500 outline-none transition-all"
-                      value={ratePerUnit}
-                      onChange={(e) => setRatePerUnit(Number(e.target.value))}
-                    />
-                  </div>
-                  <div>
-                    <label className="text-xs font-bold text-green-700 ml-1 flex justify-between">
-                      <span>Final Bill Amount</span>
-                      <span className="bg-green-100 text-green-700 px-1.5 rounded text-[10px]">EDITABLE</span>
-                    </label>
-                    <input
-                      type="number"
-                      className="w-full p-3 border-2 border-green-400 rounded-xl font-bold text-xl text-green-800 focus:ring-4 ring-green-500/20 outline-none transition-all"
-                      placeholder={`₹${(totalUnits * ratePerUnit).toFixed(0)}`}
-                      value={manualBillAmount}
-                      onChange={(e) => setManualBillAmount(e.target.value)}
-                    />
-                  </div>
-                </div>
-              </>
-            )}
+            <div className="flex items-center gap-2 p-2 bg-blue-50 rounded-lg border border-blue-100">
+              <input
+                type="checkbox"
+                id="includeOwner"
+                checked={includeOwner}
+                onChange={(e) => setIncludeOwner(e.target.checked)}
+                className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+              />
+              <label htmlFor="includeOwner" className="text-xs font-bold text-slate-700 cursor-pointer select-none">
+                Include Owner in Split? <span className="text-blue-500 font-normal">( Pays ₹{uiSplitAmount} )</span>
+              </label>
+            </div>
 
-            {/* === MODE 2: TNEB SLAB === */}
-            {billingMethod === 'TNEB' && (
-              <>
-                <div className="flex justify-center mb-2">
-                  <div className="flex bg-slate-50 rounded-lg scale-90">
-                    <button onClick={() => setCalculationMode('FORWARD')} className={`px-3 py-1 text-[10px] font-bold rounded-md transition-all ${calculationMode === 'FORWARD' ? 'bg-purple-100 text-purple-700' : 'text-slate-400'}`}>Auto (Standard)</button>
-                    <button onClick={() => setCalculationMode('REVERSE')} className={`px-3 py-1 text-[10px] font-bold rounded-md transition-all ${calculationMode === 'REVERSE' ? 'bg-purple-100 text-purple-700' : 'text-slate-400'}`}>Split Bill (Reverse)</button>
-                  </div>
-                </div>
-
-                {/* FORWARD (AUTO) MODE */}
-                {calculationMode === 'FORWARD' && (
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="bg-purple-50 p-3 rounded-xl border border-purple-200">
-                      <p className="text-slate-500 text-[10px] uppercase font-bold tracking-wider">Device Units</p>
-                      <p className="font-bold text-2xl text-slate-800">{String(totalUnits)} <span className="text-sm font-normal text-slate-500">kWh</span></p>
-                    </div>
-                    <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
-                      <p className="text-slate-500 text-[10px] uppercase font-bold tracking-wider">Calc. Cost</p>
-                      <p className="font-bold text-2xl text-slate-800">₹{tnebBillAmount}</p>
-                    </div>
-                  </div>
-                )}
-
-                {/* REVERSE (SPLIT) MODE */}
-                {calculationMode === 'REVERSE' && (
-                  <div className="space-y-3">
-                    {/* Row 1: Total Bill + Total House Units */}
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="bg-green-50 p-3 rounded-xl border border-green-200">
-                        <p className="text-green-800 text-[10px] uppercase font-bold tracking-wider">1. Total EB Bill</p>
-                        <div className="flex items-center"><span className="text-xl font-bold text-green-700 mr-1">₹</span><input type="number" className="bg-transparent font-bold text-2xl text-green-700 outline-none w-full" placeholder="0" value={reverseAmount} onChange={(e) => handleReverseCalculation(e.target.value)} autoFocus /></div>
-                      </div>
-                      <div className="bg-slate-50 p-3 rounded-xl border border-slate-100 opacity-70">
-                        <p className="text-slate-500 text-[10px] uppercase font-bold tracking-wider">House Total Units</p>
-                        <p className="font-bold text-xl text-slate-600">{reverseUnits || 0} <span className="text-sm font-normal text-slate-400">calculated</span></p>
-                      </div>
-                    </div>
-
-                    {/* Row 2: Device Share Calculation */}
-                    <div className="bg-white p-3 rounded-xl border-2 border-dashed border-purple-200">
-                      <div className="flex justify-between items-center mb-2">
-                        <div className="text-left">
-                          <p className="text-[10px] font-bold text-slate-400 uppercase">2. Device Usage</p>
-                          <p className="text-lg font-bold text-slate-800">{totalUnits} <span className="text-xs font-normal text-slate-400">kWh</span></p>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-[10px] font-bold text-purple-600 uppercase">Avg Rate</p>
-                          <p className="text-xs font-mono text-slate-500">₹{(Number(reverseAmount) && Number(reverseUnits)) ? (Number(reverseAmount) / Number(reverseUnits)).toFixed(2) : '0.00'} / unit</p>
-                        </div>
-                      </div>
-                      <div className="pt-2 border-t border-purple-50 flex justify-between items-end">
-                        <span className="text-sm font-bold text-purple-900">Tenant / Device Share</span>
-                        <span className="text-2xl font-bold text-purple-700">₹{((Number(reverseAmount) / Number(reverseUnits) || 0) * Number(totalUnits)).toFixed(0)}</span>
-                      </div>
-                    </div>
-
-                    {/* Row 3: Owner Share */}
-                    <div className="flex justify-between items-center px-2">
-                      <span className="text-xs font-bold text-slate-400">Owner Balance to Pay:</span>
-                      <span className="text-sm font-bold text-slate-600">₹{Math.max(0, Number(reverseAmount) - ((Number(reverseAmount) / Number(reverseUnits) || 0) * Number(totalUnits))).toFixed(0)}</span>
-                    </div>
-                  </div>
-                )}
-
-                {calculationMode === 'FORWARD' && (
-                  <div className="bg-slate-50 p-3 rounded-lg border border-slate-100">
-                    <div className="flex justify-between items-center mb-1"><span className="text-xs font-bold text-slate-500">TNEB Domestic</span></div>
-                    <div className="flex justify-between font-mono text-xs font-bold text-purple-700"><span>Applied Slab:</span><span>{getSlabDetails(Number(totalUnits))}</span></div>
-                  </div>
-                )}
-              </>
-            )}
 
             <button
               onClick={handleGenerateBill}
               disabled={loading}
               className={`w-full py-4 rounded-xl font-bold text-white shadow-lg shadow-blue-500/30 transition-all transform active:scale-[0.98] ${loading ? 'bg-slate-400' : 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500'}`}
             >
-              {loading ? 'Processing...' : `🚀 Send Bill (₹${billingMethod === 'FIXED' ? (manualBillAmount || (totalUnits * ratePerUnit).toFixed(0)) : (calculationMode === 'REVERSE' ? ((Number(reverseAmount) / Number(reverseUnits) || 0) * Number(totalUnits)).toFixed(0) : (manualBillAmount || tnebBillAmount))})`}
+              {loading ? 'Processing...' : `🚀 Send Bill (₹${manualBillAmount || calculatedBill})`}
             </button>
 
             <p className="text-[10px] text-slate-400 text-center leading-relaxed">
@@ -589,6 +421,6 @@ export default function Home() {
         </div>
 
       </div>
-    </div>
+    </div >
   );
 }

@@ -1,6 +1,7 @@
+
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/firebase';
-import { ref, get, child, push, set } from "firebase/database";
+import { ref, get, child } from "firebase/database";
 import { sendEmail } from '@/lib/email';
 import TelegramBot from 'node-telegram-bot-api';
 
@@ -10,7 +11,7 @@ const bot = new TelegramBot(botToken, { polling: false });
 export async function POST(request: Request) {
     try {
         const body = await request.json();
-        const { totalAmount, month } = body;
+        const { totalAmount, month, houseId, includeOwner } = body;
 
         // 0. Fetch Settings (Tenant Count) from Database
         const dbRef = ref(db);
@@ -18,37 +19,30 @@ export async function POST(request: Request) {
         // For now, let's keep it simple: Split by registered tenants count.
 
         // 1. Fetch Tenants for this House
-        const houseId = body.houseId || 'HOUSE_001';
-        const usersSnap = await get(child(dbRef, `houses/${houseId}/tenants`));
+        const targetHouseId = houseId || 'HOUSE_001';
+        const usersSnap = await get(child(dbRef, `houses/${targetHouseId}/tenants`));
 
         let users: any = {};
         if (usersSnap.exists()) users = usersSnap.val();
 
-        // Calculate Split based on ACTIVE users count
-        const activeTenantCount = Object.keys(users).length || 1;
-        const splitAmount = (totalAmount / activeTenantCount).toFixed(2);
+        // Calculate Split based on ACTIVE users count + Owner if selected
+        const tenantCount = Object.keys(users).length || 1;
+        const totalPeople = tenantCount + (includeOwner ? 1 : 0);
+        const splitAmount = (totalAmount / totalPeople).toFixed(2);
 
         const notificationLog = [];
 
         // 2. Generate Assets
-        // 2. Generate Assets
-        // Use Vercel URL if available, else localhost
-        const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000';
-
         const upiLink = `upi://pay?pa=owner@upi&pn=SmartGridOwner&am=${splitAmount}&cu=INR`;
         const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(upiLink)}`;
-        const invoiceLink = `${baseUrl}/invoice?houseId=${houseId}&user=${encodeURIComponent('Tenant')}&amount=${splitAmount}`;
 
         // 3. Loop through users
         for (const userId in users) {
             const user = users[userId];
-            const userInvoiceLink = `${baseUrl}/invoice?houseId=${houseId}&user=${encodeURIComponent(user.label)}&amount=${splitAmount}`;
-
             const message = `🏠 **BILL ALERT: ${user.label}**\n\n` +
                 `📅 Month: ${month}\n` +
-                `💸 **Your Share: ₹${splitAmount}**\n\n` +
-                `📄 [View & Download Invoice](${userInvoiceLink})\n` +
-                `💳 [Pay Now via UPI](${upiLink})`;
+                `💸 **Your Share: ₹${splitAmount}**\n` +
+                `[Pay Now via UPI](${upiLink})`;
 
             // CASE A: Telegram User
             if (user.chatId) {
@@ -86,8 +80,8 @@ export async function POST(request: Request) {
                                                 <td style="padding: 10px; color: #0f172a; font-weight: bold; text-align: right;">₹${totalAmount}</td>
                                             </tr>
                                             <tr>
-                                                <td style="padding: 10px; color: #64748b;">Active Tenants</td>
-                                                <td style="padding: 10px; color: #0f172a; font-weight: bold; text-align: right;">${activeTenantCount}</td>
+                                                <td style="padding: 10px; color: #64748b;">Split Count</td>
+                                                <td style="padding: 10px; color: #0f172a; font-weight: bold; text-align: right;">${totalPeople} (Tenants${includeOwner ? '+Owner' : ''})</td>
                                             </tr>
                                             <tr style="border-top: 2px dashed #cbd5e1;">
                                                 <td style="padding: 15px 10px; color: #0f172a; font-size: 18px; font-weight: bold;">YOUR SHARE</td>
@@ -100,7 +94,7 @@ export async function POST(request: Request) {
                                         <a href="${upiLink}" style="background: #10b981; color: white; padding: 15px 30px; text-decoration: none; border-radius: 50px; font-weight: bold; display: inline-block; box-shadow: 0 4px 6px -1px rgba(16, 185, 129, 0.4);">
                                             💸 Pay Now (UPI)
                                         </a>
-                                        <a href="${userInvoiceLink}" target="_blank" style="display:block; margin-top:15px; color:#2563eb; text-decoration:underline; font-size:14px; font-weight: bold;">
+                                        <a href="http://localhost:3000/invoice?houseId=${houseId}&user=${encodeURIComponent(user.label)}&amount=${splitAmount}" target="_blank" style="display:block; margin-top:15px; color:#2563eb; text-decoration:underline; font-size:14px; font-weight: bold;">
                                             📄 View / Download Official Invoice
                                         </a>
                                     </div>
@@ -124,18 +118,6 @@ export async function POST(request: Request) {
                 } catch (e) { console.error("Email Fail", e); }
             }
         }
-
-        // 4. SAVE BILL HISTORY (NEW FEATURE)
-        // Create a unique key for this month/bill
-        const historyRef = push(ref(db, `houses/${houseId}/billing_history`));
-        await set(historyRef, {
-            month: month,
-            total_amount: totalAmount,
-            split_amount: splitAmount,
-            active_tenants: activeTenantCount,
-            generated_at: new Date().toISOString()
-        });
-        notificationLog.push("Saved to Billing History");
 
         return NextResponse.json({ success: true, logs: notificationLog });
 
