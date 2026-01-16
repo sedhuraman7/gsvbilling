@@ -50,32 +50,85 @@ export default function Home() {
   const [billMode, setBillMode] = useState<'AUTO' | 'REVERSE'>('AUTO');
 
   // CALCULATIONS
-  // CALCULATIONS
-  const totalUnits = systemData.energy_kwh || systemData.total_runtime_today || 0;
+  // HELPER: Reverse TNEB Calculation (Bill Amount -> Units)
+  const getUnitsFromBill = (amount: number) => {
+    let bill = amount;
+    if (bill <= 0) return 0;
 
-  // 1. Calculate Device Cost (Based on FIXED rate or TNEB Slab)
-  const calculateDeviceCost = () => {
-    // FIXED RATE
-    if (rateType === 'FIXED') {
-      return (totalUnits * ratePerUnit).toFixed(0);
+    // Reverse TNEB Logic
+    // Slabs:
+    // 0-100: 0
+    // 101-200: 2.25
+    // 201-400: 4.50
+    // 401-500: 6.00
+    // >500: 8.00
+
+    // Max cost for first 200 units (100*0 + 100*2.25) = 225
+    if (bill <= 225) {
+      if (bill === 0) return 100; // Ambiguous, but let's assume if 0 cost, it's <= 100.
+      return 100 + (bill / 2.25);
     }
-    // TNEB SLAB
-    let u = totalUnits;
-    let bill = 0;
-    if (u === 0) return "0";
-    if (u > 100) bill += (Math.min(u, 200) - 100) * 2.25;
-    if (u > 200) bill += (Math.min(u, 400) - 200) * 4.50;
-    if (u > 400) bill += (Math.min(u, 500) - 400) * 6.00;
-    if (u > 500) bill += (u - 500) * 8.00;
-    return bill.toFixed(0);
+
+    // Max cost for first 400 units (225 + 200*4.50) = 225 + 900 = 1125
+    if (bill <= 1125) {
+      return 200 + ((bill - 225) / 4.50);
+    }
+
+    // Max cost for first 500 units (1125 + 100*6.00) = 1125 + 600 = 1725
+    if (bill <= 1725) {
+      return 400 + ((bill - 1125) / 6.00);
+    }
+
+    // Above 500
+    return 500 + ((bill - 1725) / 8.00);
   };
 
-  const deviceCost = calculateDeviceCost();
+  const deviceUnits = systemData.energy_kwh || systemData.total_runtime_today || 0; // The actual smart meter reading
+
+  // LOGIC BRANCHING
+  let displayTotalUnits = 0; // What we show in the big "Total Units" box
+  let calculatedDeviceCost = "0";
+
+  // Branch 1: REVERSE MODE (User enters Bill Amount -> We calc units)
+  if (billMode === 'REVERSE') {
+    const inputBill = Number(manualBillAmount) || 0;
+
+    if (rateType === 'TNEB') {
+      const calculatedHouseUnits = getUnitsFromBill(inputBill);
+      displayTotalUnits = parseFloat(calculatedHouseUnits.toFixed(2));
+
+      // Average Rate Calculation
+      const avgRate = displayTotalUnits > 0 ? (inputBill / displayTotalUnits) : 0;
+      calculatedDeviceCost = (deviceUnits * avgRate).toFixed(0);
+    } else {
+      // Reverse + Fixed Mode (Rare, but logic: Bill / FixedRate = Units)
+      const rate = ratePerUnit || 1;
+      displayTotalUnits = parseFloat((inputBill / rate).toFixed(2));
+      calculatedDeviceCost = (deviceUnits * rate).toFixed(0);
+    }
+  }
+  // Branch 2: AUTO MODE (User relies on Device Units -> We calc Bill)
+  else {
+    displayTotalUnits = deviceUnits;
+
+    if (rateType === 'FIXED') {
+      calculatedDeviceCost = (deviceUnits * ratePerUnit).toFixed(0);
+    } else {
+      // Forward TNEB Calculation
+      let u = deviceUnits;
+      let bill = 0;
+      if (u > 100) bill += (Math.min(u, 200) - 100) * 2.25;
+      if (u > 200) bill += (Math.min(u, 400) - 200) * 4.50;
+      if (u > 400) bill += (Math.min(u, 500) - 400) * 6.00;
+      if (u > 500) bill += (u - 500) * 8.00;
+      calculatedDeviceCost = bill.toFixed(0);
+    }
+  }
 
   // 2. Determine Split Amount
   const uiSplitAmount = (() => {
     const totalInput = Number(manualBillAmount) || 0;
-    const devCost = Number(deviceCost);
+    const devCost = Number(calculatedDeviceCost);
 
     // In AUTO: We split the DEVICE COST.
     // In REVERSE: We split (TOTAL BILL - DEVICE COST).
@@ -187,7 +240,7 @@ export default function Home() {
 
     // Determine the "Billing Amount" (The amount to be SPLIT)
     const totalInput = Number(manualBillAmount) || 0;
-    const devCost = Number(deviceCost);
+    const devCost = Number(calculatedDeviceCost);
     const billableAmount = billMode === 'AUTO' ? devCost : Math.max(0, totalInput - devCost);
 
     const currentMonth = new Date().toLocaleString('default', { month: 'long', year: 'numeric' });
@@ -345,9 +398,11 @@ export default function Home() {
             <div className="grid grid-cols-2 gap-4">
               {/* LEFT: UNITS */}
               <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 flex flex-col justify-center">
-                <p className="text-slate-400 text-[10px] uppercase font-bold tracking-wider mb-1">Total House Units</p>
+                <p className="text-slate-400 text-[10px] uppercase font-bold tracking-wider mb-1">
+                  {billMode === 'REVERSE' ? 'Est. Total Units' : 'Smart Meter Units'}
+                </p>
                 <div className="flex items-baseline gap-1">
-                  <span className="font-extrabold text-3xl text-slate-800">{String(totalUnits)}</span>
+                  <span className="font-extrabold text-3xl text-slate-800">{String(displayTotalUnits)}</span>
                   <span className="text-sm font-medium text-slate-500">kWh</span>
                 </div>
               </div>
@@ -371,12 +426,20 @@ export default function Home() {
                   </div>
                 ) : (
                   <div className="flex items-baseline gap-1">
-                    <span className="font-extrabold text-3xl text-slate-800">₹{deviceCost}</span>
+                    <span className="font-extrabold text-3xl text-slate-800">₹{calculatedDeviceCost}</span>
                     {rateType === 'FIXED' && <span className="text-xs text-slate-400">(Fixed Rate)</span>}
                   </div>
                 )}
               </div>
             </div>
+
+            {/* DEVICE COST DISPLAY IN REVERSE MODE (CLARITY) */}
+            {billMode === 'REVERSE' && (
+              <div className="flex justify-between items-center bg-slate-50 p-2 rounded-lg border border-slate-100 text-xs">
+                <span className="text-slate-500">Device Consumption: <b>{deviceUnits} kWh</b></span>
+                <span className="text-slate-700 font-bold">Device Cost: ₹{calculatedDeviceCost}</span>
+              </div>
+            )}
 
             {/* TNEB SLAB DETAILS (Only if TNEB) */}
             {rateType === 'TNEB' && (
@@ -392,10 +455,10 @@ export default function Home() {
                 <div className="flex justify-between font-mono pt-2 border-t border-dashed border-slate-200">
                   <span className="font-bold text-purple-700">Applied Slab:</span>
                   <span className="font-bold text-purple-700">
-                    {totalUnits > 500 ? '>500 (@ ₹8+)' :
-                      totalUnits > 400 ? '401-500 (@ ₹6.00)' :
-                        totalUnits > 200 ? '201-400 (@ ₹4.50)' :
-                          totalUnits > 100 ? '101-200 (@ ₹2.25)' : 'Base Slab'}
+                    {displayTotalUnits > 500 ? '>500 (@ ₹8+)' :
+                      displayTotalUnits > 400 ? '401-500 (@ ₹6.00)' :
+                        displayTotalUnits > 200 ? '201-400 (@ ₹4.50)' :
+                          displayTotalUnits > 100 ? '101-200 (@ ₹2.25)' : 'Base Slab'}
                   </span>
                 </div>
               </div>
@@ -440,7 +503,7 @@ export default function Home() {
               disabled={loading}
               className={`w-full py-4 rounded-xl font-bold text-white shadow-lg shadow-blue-500/30 transition-all transform active:scale-[0.98] ${loading ? 'bg-slate-400' : 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500'}`}
             >
-              {loading ? 'Processing...' : `🚀 Send Bill (₹${billMode === 'REVERSE' ? manualBillAmount : deviceCost})`}
+              {loading ? 'Processing...' : `🚀 Send Bill (₹${billMode === 'REVERSE' ? manualBillAmount : calculatedDeviceCost})`}
             </button>
 
             <p className="text-[10px] text-slate-400 text-center leading-relaxed">
