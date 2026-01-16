@@ -46,10 +46,26 @@ export default function Home() {
   const [ratePerUnit, setRatePerUnit] = useState(7);
   const [manualBillAmount, setManualBillAmount] = useState('');
   const [includeOwner, setIncludeOwner] = useState(true);
+  const [calcMode, setCalcMode] = useState<'FLAT' | 'TNEB'>('FLAT');
 
   // CALCULATIONS
   const totalUnits = systemData.energy_kwh || systemData.total_runtime_today || 0;
-  const calculatedBill = isNaN(totalUnits * ratePerUnit) ? "0" : (totalUnits * ratePerUnit).toFixed(0);
+
+  const calculateBillValue = () => {
+    if (calcMode === 'FLAT') return isNaN(totalUnits * ratePerUnit) ? "0" : (totalUnits * ratePerUnit).toFixed(0);
+
+    // TNEB SLAB Logic (Generic TN Tariff 2024 approximation)
+    // 0-100 Free, 101-200@2.25, 201-400@4.5, 401-500@6, >500@8+
+    // Fixed approximation
+    let u = totalUnits;
+    let bill = 0;
+    if (u > 100) bill += (Math.min(u, 200) - 100) * 2.25;
+    if (u > 200) bill += (Math.min(u, 400) - 200) * 4.50;
+    if (u > 400) bill += (Math.min(u, 500) - 400) * 6.00;
+    if (u > 500) bill += (u - 500) * 8.00; // Simplified top tier
+    return bill.toFixed(0);
+  };
+  const calculatedBill = calculateBillValue();
 
   const uiSplitAmount = (() => {
     const total = manualBillAmount ? Number(manualBillAmount) : Number(calculatedBill);
@@ -303,15 +319,23 @@ export default function Home() {
             </div>
 
             <div className="space-y-3 pt-2">
-              <div>
-                <label className="text-xs font-bold text-slate-600 ml-1">Rate per Unit (₹)</label>
-                <input
-                  type="number"
-                  className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg font-mono text-sm focus:ring-2 ring-blue-500 outline-none transition-all"
-                  value={ratePerUnit}
-                  onChange={(e) => setRatePerUnit(Number(e.target.value))}
-                />
+              {/* MODE TOGGLE */}
+              <div className="flex bg-slate-100 p-1 rounded-lg">
+                <button onClick={() => setCalcMode('FLAT')} className={`flex-1 py-1 text-xs font-bold rounded-md transition-all ${calcMode === 'FLAT' ? 'bg-white shadow text-blue-600' : 'text-slate-500'}`}>Flat Rate</button>
+                <button onClick={() => setCalcMode('TNEB')} className={`flex-1 py-1 text-xs font-bold rounded-md transition-all ${calcMode === 'TNEB' ? 'bg-white shadow text-blue-600' : 'text-slate-500'}`}>TNEB Slab</button>
               </div>
+
+              {calcMode === 'FLAT' && (
+                <div>
+                  <label className="text-xs font-bold text-slate-600 ml-1">Rate per Unit (₹)</label>
+                  <input
+                    type="number"
+                    className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg font-mono text-sm focus:ring-2 ring-blue-500 outline-none transition-all"
+                    value={ratePerUnit}
+                    onChange={(e) => setRatePerUnit(Number(e.target.value))}
+                  />
+                </div>
+              )}
               <div>
                 <label className="text-xs font-bold text-green-700 ml-1 flex justify-between">
                   <span>Final Bill Amount</span>
