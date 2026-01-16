@@ -45,8 +45,9 @@ export async function POST(request: Request) {
             const user = users[userId];
             const message = `🏠 **BILL ALERT: ${user.label}**\n\n` +
                 `📅 Month: ${month}\n` +
-                `💸 **Your Share: ₹${splitAmount}**\n` +
-                `[Pay Now via UPI](${upiLink})`;
+                `💸 **Your Share: ₹${splitAmount}**\n\n` +
+                `[Pay Now via UPI](${upiLink})\n` +
+                `[📄 Download Invoice](${appUrl}/invoice?houseId=${houseId}&user=${encodeURIComponent(user.label)}&amount=${splitAmount})`;
 
             // CASE A: Telegram User
             if (user.chatId) {
