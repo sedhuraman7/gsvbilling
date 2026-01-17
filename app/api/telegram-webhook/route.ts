@@ -5,8 +5,9 @@ import { db } from '@/lib/firebase'; // Ensure this points to your client config
 import { ref, get, update, child } from "firebase/database";
 
 // Initialize Bot
-const token = process.env.TELEGRAM_BOT_TOKEN || "8537233654:AAGxhu2rsL6CNEOurDGLfrtNSt0FeDPmPVI";
-const bot = new TelegramBot(token); // No polling needed for Webhooks
+// FORCE VALID TOKEN (Bypassing potential stale Env Var on Vercel)
+const token = "8537233654:AAGxhu2rsL6CNEOurDGLfrtNSt0FeDPmPVI";
+const bot = new TelegramBot(token, { polling: false });
 
 // This handles the INCOMING message from Telegram
 export async function POST(request: Request) {
