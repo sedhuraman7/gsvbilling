@@ -6,7 +6,9 @@ import { ref, get, update, child } from "firebase/database";
 
 // Initialize Bot
 // FORCE VALID TOKEN (Bypassing potential stale Env Var on Vercel)
+// FORCE VALID TOKEN
 const token = "8537233654:AAGxhu2rsL6CNEOurDGLfrtNSt0FeDPmPVI";
+// IMPORTANT: polling must be FALSE for Vercel (Webhooks mode)
 const bot = new TelegramBot(token, { polling: false });
 
 // This handles the INCOMING message from Telegram
