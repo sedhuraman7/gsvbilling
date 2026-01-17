@@ -1,11 +1,9 @@
-
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/firebase';
 import { ref, get, child } from "firebase/database";
 import { sendEmail } from '@/lib/email';
 import TelegramBot from 'node-telegram-bot-api';
 
-// Use Token from ENV (or fallback to hardcoded if env missing during build/runtime edge cases, but ENV is preferred)
 // Force Valid Token for SENDING bills too (Fixes Vercel 401 issue)
 const botToken = "8537233654:AAGxhu2rsL6CNEOurDGLfrtNSt0FeDPmPVI";
 const bot = new TelegramBot(botToken, { polling: false });
@@ -15,12 +13,8 @@ export async function POST(request: Request) {
         const body = await request.json();
         const { totalAmount, month, houseId, includeOwner } = body;
 
-        // 0. Fetch Settings (Tenant Count) from Database
+        // 0. Fetch Settings from Database
         const dbRef = ref(db);
-        // Note: We need Tenant Count logic, but in Multi-house, we just count actual tenants list length ideally.
-        // For now, let's keep it simple: Split by registered tenants count.
-
-        // 1. Fetch Tenants for this House
         const targetHouseId = houseId || 'HOUSE_001';
         const usersSnap = await get(child(dbRef, `houses/${targetHouseId}/tenants`));
 
@@ -34,33 +28,36 @@ export async function POST(request: Request) {
 
         const notificationLog = [];
 
-        // 2. Generate Assets
+        // 1. Generate Assets
+        // Note: & in upiLink is handled by encoding or template strings
         const upiLink = `upi://pay?pa=owner@upi&pn=SmartGridOwner&am=${splitAmount}&cu=INR`;
         const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(upiLink)}`;
 
-        // Base URL for Links
-        const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+        // 2. FORCE PUBLIC PROD URL (No Vercel Login Required)
+        const appUrl = 'https://gsvbilling.vercel.app';
 
         // 3. Loop through users
         for (const userId in users) {
             const user = users[userId];
-            const message = `🏠 **BILL ALERT: ${user.label}**\n\n` +
+            const safeLabel = user.label ? user.label.replace(/</g, '&lt;').replace(/>/g, '&gt;') : 'Tenant';
+
+            // HTML Message with robust links
+            const message = `🏠 <b>BILL ALERT: ${safeLabel}</b>\n\n` +
                 `📅 Month: ${month}\n` +
-                `💸 **Your Share: ₹${splitAmount}**\n\n` +
-                `[Pay Now via UPI](${upiLink})\n` +
-                `[📄 Download Invoice](${appUrl}/invoice?houseId=${houseId}&user=${encodeURIComponent(user.label)}&amount=${splitAmount})`;
+                `💸 <b>Your Share: ₹${splitAmount}</b>\n\n` +
+                `<a href="${upiLink}">Pay Now via UPI</a>\n` +
+                `<a href="${appUrl}/invoice?houseId=${houseId}&user=${encodeURIComponent(user.label)}&amount=${splitAmount}&autoPrint=true">📄 Download Invoice</a>`;
 
             // CASE A: Telegram User
             if (user.chatId) {
                 try {
-                    await bot.sendMessage(user.chatId, message, { parse_mode: 'Markdown' });
+                    await bot.sendMessage(user.chatId, message, { parse_mode: 'HTML' });
                     await bot.sendPhoto(user.chatId, qrCodeUrl);
                     notificationLog.push(`Sent Telegram to ${user.label}`);
                 } catch (e) { console.error("Tele Fail", e); }
             }
 
-            // CASE B: Email User (or Both)
-            // PREMIUM TEMPLATE
+            // CASE B: Email User
             if (user.email) {
                 try {
                     const emailHtml = `
@@ -100,7 +97,7 @@ export async function POST(request: Request) {
                                         <a href="${upiLink}" style="background: #10b981; color: white; padding: 15px 30px; text-decoration: none; border-radius: 50px; font-weight: bold; display: inline-block; box-shadow: 0 4px 6px -1px rgba(16, 185, 129, 0.4);">
                                             💸 Pay Now (UPI)
                                         </a>
-                                        <a href="${appUrl}/invoice?houseId=${houseId}&user=${encodeURIComponent(user.label)}&amount=${splitAmount}" target="_blank" style="display:block; margin-top:15px; color:#2563eb; text-decoration:underline; font-size:14px; font-weight: bold;">
+                                        <a href="${appUrl}/invoice?houseId=${houseId}&user=${encodeURIComponent(user.label)}&amount=${splitAmount}&autoPrint=true" target="_blank" style="display:block; margin-top:15px; color:#2563eb; text-decoration:underline; font-size:14px; font-weight: bold;">
                                             📄 View / Download Official Invoice
                                         </a>
                                     </div>
@@ -115,11 +112,7 @@ export async function POST(request: Request) {
                     </html>
                 `;
 
-                    await sendEmail(
-                        user.email,
-                        `⚡ Statement: ₹${splitAmount} Due`,
-                        emailHtml
-                    );
+                    await sendEmail(user.email, `⚡ Statement: ₹${splitAmount} Due`, emailHtml);
                     notificationLog.push(`Sent Email to ${user.label}`);
                 } catch (e) { console.error("Email Fail", e); }
             }
