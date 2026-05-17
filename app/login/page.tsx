@@ -4,8 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Zap, Home, Lock } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { db } from '@/lib/firebase';
-import { ref, get, child } from 'firebase/database';
+import { supabase } from '@/lib/supabase';
 
 export default function Login() {
     const [mode, setMode] = useState<'OWNER' | 'TENANT'>('OWNER');
@@ -28,12 +27,10 @@ export default function Login() {
         }
 
         try {
-            const dbRef = ref(db);
-
             if (mode === 'OWNER') {
-                const snapshot = await get(child(dbRef, `houses/${houseId.toUpperCase()}/config`));
-                if (snapshot.exists()) {
-                    const data = snapshot.val();
+                const { data, error } = await supabase.from('houses').select('*').eq('id', houseId.toUpperCase()).single();
+                
+                if (data) {
                     if (data.owner_pass === password) {
                         sessionStorage.setItem('active_house_id', houseId.toUpperCase());
                         sessionStorage.setItem('role', 'OWNER');
@@ -46,39 +43,20 @@ export default function Login() {
                 }
             }
             else {
-                // TENANT LOGIN LOGIC (Search by Link Code)
-                const snapshot = await get(child(dbRef, `houses/${houseId.toUpperCase()}/tenants`));
-                let found = false;
-
-                // Remove spaces from input
+                // TENANT LOGIN LOGIC
                 const cleanCode = password.trim();
                 console.log(`Trying Login: House=${houseId}, Code=${cleanCode}`);
+                
+                const { data, error } = await supabase.from('tenants').select('*').eq('house_id', houseId.toUpperCase()).eq('link_code', cleanCode).single();
 
-                if (snapshot.exists()) {
-                    const tenants = snapshot.val();
-                    for (const key in tenants) {
-                        const dbCode = String(tenants[key].link_code);
-                        console.log(`Checking Tenant: ${tenants[key].label}, LinkCode: ${dbCode}`);
-
-                        if (dbCode === cleanCode) {
-                            sessionStorage.setItem('active_house_id', houseId.toUpperCase());
-                            sessionStorage.setItem('role', 'TENANT');
-                            sessionStorage.setItem('tenant_id', key);
-                            sessionStorage.setItem('tenant_name', tenants[key].label);
-                            found = true;
-                            break;
-                        }
-                    }
-                }
-
-                if (found) router.push('/tenant');
-                else {
-                    // DEBUG: Show what codes exist
-                    const availableCodes = snapshot.exists() ?
-                        Object.values(snapshot.val()).map((t: any) => t.link_code).join(', ')
-                        : "No Tenants Found";
-
-                    setError(`Code Failed. DB Has: [ ${availableCodes} ]`);
+                if (data) {
+                    sessionStorage.setItem('active_house_id', houseId.toUpperCase());
+                    sessionStorage.setItem('role', 'TENANT');
+                    sessionStorage.setItem('tenant_id', data.id);
+                    sessionStorage.setItem('tenant_name', data.name);
+                    router.push('/tenant');
+                } else {
+                    setError(`Code Failed. Invalid House ID or Access Code.`);
                 }
             }
 
