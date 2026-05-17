@@ -24,9 +24,14 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-      >
+      <head>
+        <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet" />
+      </head>
+      <body className="antialiased" style={{ fontFamily: "'Outfit', sans-serif" }}>
+        <div className="background-blobs">
+          <div className="blob blob-1"></div>
+          <div className="blob blob-2"></div>
+        </div>
         {children}
       </body>
     </html>
