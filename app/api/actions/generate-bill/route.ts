@@ -23,10 +23,17 @@ export async function POST(request: Request) {
                 users[t.id] = { label: t.name, email: t.email, chatId: t.chat_id, link_code: t.link_code };
             });
         }
+        
+        // Also fetch owner if included
+        if (includeOwner) {
+            const { data: houseData } = await supabase.from('houses').select('owner_email').eq('id', targetHouseId).single();
+            if (houseData && houseData.owner_email) {
+                users['OWNER'] = { label: 'House Owner', email: houseData.owner_email, chatId: null, link_code: null };
+            }
+        }
 
-        // Calculate Split based on ACTIVE users count + Owner if selected
-        const tenantCount = Object.keys(users).length || 1;
-        const totalPeople = tenantCount + (includeOwner ? 1 : 0);
+        // Calculate Split based on ACTIVE users count
+        const totalPeople = Object.keys(users).length || 1;
         const splitAmount = (totalAmount / totalPeople).toFixed(2);
 
         const notificationLog = [];
