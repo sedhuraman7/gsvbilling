@@ -89,7 +89,7 @@ export default function Login() {
     };
 
     return (
-        <div className="min-h-screen flex items-center justify-center bg-slate-100 p-4">
+        <div className="min-h-screen flex items-center justify-center glass-panel-inner p-4">
             <Card className="w-full max-w-md shadow-xl border-t-4 border-blue-600">
                 <CardHeader className="text-center pb-2">
                     <div className="flex justify-center mb-4">
@@ -97,19 +97,19 @@ export default function Login() {
                             <Zap className="h-8 w-8 text-blue-600 fill-blue-600" />
                         </div>
                     </div>
-                    <CardTitle className="text-2xl font-bold text-slate-800">Smart Grid Login</CardTitle>
+                    <CardTitle className="text-2xl font-bold text-white">Smart Grid Login</CardTitle>
 
                     {/* TABS */}
-                    <div className="flex bg-slate-200 p-1 rounded mt-4">
+                    <div className="flex glass-panel-inner text-white p-1 rounded mt-4">
                         <button
                             onClick={() => setMode('OWNER')}
-                            className={`flex-1 py-1 text-sm font-bold rounded ${mode === 'OWNER' ? 'bg-white shadow text-blue-600' : 'text-slate-500'}`}
+                            className={`flex-1 py-1 text-sm font-bold rounded ${mode === 'OWNER' ? 'glass-panel text-white shadow text-blue-600' : 'text-blue-300'}`}
                         >
                             Owner
                         </button>
                         <button
                             onClick={() => setMode('TENANT')}
-                            className={`flex-1 py-1 text-sm font-bold rounded ${mode === 'TENANT' ? 'bg-white shadow text-orange-600' : 'text-slate-500'}`}
+                            className={`flex-1 py-1 text-sm font-bold rounded ${mode === 'TENANT' ? 'glass-panel text-white shadow text-orange-600' : 'text-blue-300'}`}
                         >
                             Tenant
                         </button>
@@ -120,13 +120,13 @@ export default function Login() {
                     <form onSubmit={handleLogin} className="space-y-4">
 
                         <div className="space-y-2">
-                            <label className="text-sm font-medium text-slate-700 flex items-center gap-1">
+                            <label className="text-sm font-medium text-blue-100 flex items-center gap-1">
                                 <Home className="h-4 w-4" /> House ID
                             </label>
                             <input
                                 type="text"
                                 placeholder="Ex: HOUSE_001"
-                                className="w-full p-3 border rounded-lg uppercase text-slate-900 bg-white"
+                                className="w-full p-3 border rounded-lg uppercase text-white glass-panel text-white"
                                 value={houseId}
                                 onChange={(e) => setHouseId(e.target.value)}
                                 required
@@ -134,13 +134,13 @@ export default function Login() {
                         </div>
 
                         <div className="space-y-2">
-                            <label className="text-sm font-medium text-slate-700 flex items-center gap-1">
+                            <label className="text-sm font-medium text-blue-100 flex items-center gap-1">
                                 <Lock className="h-4 w-4" /> {mode === 'OWNER' ? 'Password' : 'Access Code (4-Digits)'}
                             </label>
                             <input
                                 type="password" // or text for code
                                 placeholder={mode === 'OWNER' ? "••••••" : "Ex: 5544"}
-                                className="w-full p-3 border rounded-lg text-slate-900 bg-white"
+                                className="w-full p-3 border rounded-lg text-white glass-panel text-white"
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
                                 required
@@ -156,10 +156,10 @@ export default function Login() {
                             Access Dashboard
                         </button>
 
-                        <div className="text-xs text-center text-slate-400 mt-4">
+                        <div className="text-xs text-center text-blue-300 mt-4">
                             Beta Version 2.0 | Multi-House Support
                             <br />
-                            <a href="/admin" className="text-slate-300 hover:text-slate-500 mt-2 inline-block">Company Admin?</a>
+                            <a href="/admin" className="text-slate-300 hover:text-blue-300 mt-2 inline-block">Company Admin?</a>
                         </div>
                     </form>
                 </CardContent>
