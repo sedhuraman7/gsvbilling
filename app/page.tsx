@@ -275,8 +275,25 @@ export default function Home() {
         link_code: String(linkCode),
         type: 'EMAIL_ONLY'
       }]);
+
+      // SEND WELCOME EMAIL
+      try {
+        if (newTenantEmail) {
+          await fetch('/api/welcome', {
+            method: 'POST',
+            body: JSON.stringify({
+              email: newTenantEmail,
+              name: newTenantName,
+              houseId: houseId,
+              linkCode: linkCode,
+              address: newTenantRoom
+            })
+          });
+        }
+      } catch (err) { console.error("Welcome mail failed"); }
+
       setNewTenantName(''); setNewTenantEmail(''); setNewTenantRoom(''); setShowAddForm(false);
-      alert(`✅ Added to Supabase!`);
+      alert(`✅ Added to Supabase & Mail Sent!`);
     } catch (e) { alert("Failed to add tenant"); }
   };
 

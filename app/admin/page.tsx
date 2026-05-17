@@ -55,7 +55,20 @@ export default function SuperAdmin() {
 
             if (error) throw error;
 
-            alert(`✅ House ${houseId} Created in Supabase!`);
+            // SEND EMAIL to Owner
+            try {
+                await fetch('/api/welcome-owner', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        email: ownerEmail,
+                        password: ownerPass,
+                        houseId: houseId,
+                        deviceId: deviceId || 'MAC_UNKNOWN'
+                    })
+                });
+            } catch (err) { console.error("Email API Failed (Non-critical)", err); }
+
+            alert(`✅ House ${houseId} Created in Supabase & Mail Sent!`);
             setHouseId(''); setOwnerEmail(''); setOwnerPass(''); setDeviceId('');
             
             // Refresh list
