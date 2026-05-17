@@ -51,24 +51,21 @@ export async function POST(request: Request) {
             const user = users[userId];
             const safeLabel = user.label ? user.label.replace(/</g, '&lt;').replace(/>/g, '&gt;') : 'Tenant';
 
-            // HTML Message with robust links (Escape & for Telegram HTML Parser)
-            const safeInvoiceUrl = `${appUrl}/invoice?houseId=${houseId}&amp;user=${encodeURIComponent(user.label)}&amp;amount=${splitAmount}&amp;autoPrint=true`;
-            const message = `🏠 <b>BILL ALERT: ${safeLabel}</b>\n\n` +
-                `📅 Month: ${month}\n` +
-                `💸 <b>Your Share: ₹${splitAmount}</b>\n\n` +
-                `<a href="${upiLink.replace(/&/g, '&amp;')}">Pay Now via UPI</a>\n` +
-                `<a href="${safeInvoiceUrl}">📄 Download Invoice</a>`;
-
             // CASE A: Telegram User
             if (user.chatId) {
                 try {
-                    await bot.sendMessage(user.chatId, message, { parse_mode: 'HTML' });
-                    await bot.sendPhoto(user.chatId, qrCodeUrl);
-                    notificationLog.push(`Sent Telegram to ${user.label}`);
-                } catch (e) { console.error("Tele Fail", e); }
-            }
+                    const teleMsg = `🏠 BILL ALERT: ${safeLabel}\n\n` +
+                                  `📅 Month: ${month}\n` +
+                                  `💸 Your Share: ₹${splitAmount}\n\n` +
+                                  `UPI: ${upiLink}\n` +
+                                  `Invoice: ${appUrl}/invoice?houseId=${houseId}&user=${encodeURIComponent(user.label)}&amount=${splitAmount}`;
 
-            // CASE B: Email User
+                    await bot.sendMessage(user.chatId, teleMsg);
+                    notificationLog.push(`Tele -> ${user.label}`);
+                } catch (e: any) {
+                    console.error(`Tele error for ${user.chatId}: ${e.message}`);
+                }
+            }// CASE B: Email User
             if (user.email) {
                 try {
                     const emailHtml = `
