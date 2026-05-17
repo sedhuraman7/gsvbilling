@@ -51,12 +51,13 @@ export async function POST(request: Request) {
             const user = users[userId];
             const safeLabel = user.label ? user.label.replace(/</g, '&lt;').replace(/>/g, '&gt;') : 'Tenant';
 
-            // HTML Message with robust links
+            // HTML Message with robust links (Escape & for Telegram HTML Parser)
+            const safeInvoiceUrl = `${appUrl}/invoice?houseId=${houseId}&amp;user=${encodeURIComponent(user.label)}&amp;amount=${splitAmount}&amp;autoPrint=true`;
             const message = `🏠 <b>BILL ALERT: ${safeLabel}</b>\n\n` +
                 `📅 Month: ${month}\n` +
                 `💸 <b>Your Share: ₹${splitAmount}</b>\n\n` +
-                `<a href="${upiLink}">Pay Now via UPI</a>\n` +
-                `<a href="${appUrl}/invoice?houseId=${houseId}&user=${encodeURIComponent(user.label)}&amount=${splitAmount}&autoPrint=true">📄 Download Invoice</a>`;
+                `<a href="${upiLink.replace(/&/g, '&amp;')}">Pay Now via UPI</a>\n` +
+                `<a href="${safeInvoiceUrl}">📄 Download Invoice</a>`;
 
             // CASE A: Telegram User
             if (user.chatId) {

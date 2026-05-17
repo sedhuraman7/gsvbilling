@@ -13,7 +13,8 @@ import {
   Home as HomeIcon,
   Plus,
   Droplets,
-  Power
+  Power,
+  FileText
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -38,6 +39,9 @@ export default function Home() {
   const [motorLogs, setMotorLogs] = useState<any[]>([]);
   const [connected, setConnected] = useState(false);
   const [loading, setLoading] = useState(false);
+  
+  // UI States
+  const [activeTab, setActiveTab] = useState<'HOME' | 'BILLING' | 'HISTORY'>('HOME');
 
   // MANUAL ADD FORM
   const [newTenantName, setNewTenantName] = useState('');
@@ -388,10 +392,17 @@ export default function Home() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-24">
+
+        {/* --- DESKTOP TABS (Hidden on mobile) --- */}
+        <div className="hidden md:flex col-span-3 gap-4 mb-4">
+            <button onClick={() => setActiveTab('HOME')} className={`px-6 py-3 rounded-full font-bold transition-all ${activeTab === 'HOME' ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/30' : 'bg-white/5 text-slate-300 hover:bg-white/10'}`}>Home Dashboard</button>
+            <button onClick={() => setActiveTab('BILLING')} className={`px-6 py-3 rounded-full font-bold transition-all ${activeTab === 'BILLING' ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/30' : 'bg-white/5 text-slate-300 hover:bg-white/10'}`}>Tenants & Billing</button>
+            <button onClick={() => setActiveTab('HISTORY')} className={`px-6 py-3 rounded-full font-bold transition-all ${activeTab === 'HISTORY' ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/30' : 'bg-white/5 text-slate-300 hover:bg-white/10'}`}>System Logs</button>
+        </div>
 
         {/* 0. AQUASYNC SENSORS (WATER LEVEL & MOTOR) */}
-        <div className="md:col-span-3 grid grid-cols-1 md:grid-cols-2 gap-6 mb-2">
+        <div className={`md:col-span-3 grid grid-cols-1 md:grid-cols-2 gap-6 ${activeTab !== 'HOME' ? 'hidden md:hidden' : ''}`}>
             
             {/* WATER LEVEL */}
             <div className="glass-panel text-white p-6 rounded-2xl shadow-lg border border-white/10 flex flex-col items-center justify-center relative overflow-hidden">
@@ -437,7 +448,7 @@ export default function Home() {
         </div>
 
         {/* 1. TENANT LIST */}
-        <div className="md:col-span-2 glass-panel text-white p-6 rounded-2xl shadow-lg shadow-black/20 border border-white/10">
+        <div className={`md:col-span-2 glass-panel text-white p-6 rounded-2xl shadow-lg shadow-black/20 border border-white/10 ${activeTab !== 'BILLING' ? 'hidden md:hidden' : ''}`}>
           <div className="flex justify-between items-center mb-6">
             <h3 className="font-bold text-lg flex items-center gap-2 text-blue-100">
               <Users className="h-5 w-5 text-blue-600" />
@@ -490,7 +501,7 @@ export default function Home() {
         </div>
 
         {/* 2. BILL CALCULATOR */}
-        <Card className="glass-panel text-white border-none glass-panel relative overflow-hidden">
+        <Card className={`glass-panel text-white border-none glass-panel relative overflow-hidden ${activeTab !== 'BILLING' ? 'hidden md:block' : ''}`}>
           <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 to-indigo-500"></div>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-lg flex items-center gap-2 text-white">
@@ -664,7 +675,7 @@ export default function Home() {
         </div>
 
         {/* 4. BILLING HISTORY */}
-        <div className="md:col-span-3 glass-panel text-white p-6 rounded-2xl shadow-lg shadow-black/20 border border-white/10 mt-6 md:mt-0">
+        <div className={`md:col-span-3 glass-panel text-white p-6 rounded-2xl shadow-lg shadow-black/20 border border-white/10 mt-6 md:mt-0 ${activeTab !== 'BILLING' ? 'hidden md:block' : ''}`}>
           <h3 className="font-bold text-lg flex items-center gap-2 text-blue-100 mb-4">
             📜 Billing History
           </h3>
@@ -698,7 +709,7 @@ export default function Home() {
         </div>
 
         {/* 5. MOTOR LOGS */}
-        <div className="md:col-span-3 glass-panel text-white p-6 rounded-2xl shadow-lg shadow-black/20 border border-white/10 mt-6">
+        <div className={`md:col-span-3 glass-panel text-white p-6 rounded-2xl shadow-lg shadow-black/20 border border-white/10 mt-6 ${activeTab !== 'HISTORY' ? 'hidden md:hidden' : ''}`}>
           <h3 className="font-bold text-lg flex items-center gap-2 text-blue-100 mb-4">
             <Power className="h-5 w-5 text-indigo-400" /> Motor Activity History
           </h3>
@@ -734,6 +745,23 @@ export default function Home() {
         </div>
 
       </div>
+
+      {/* MOBILE BOTTOM NAV */}
+      <div className="md:hidden fixed bottom-0 left-0 right-0 bg-[#0f172a]/90 backdrop-blur-lg border-t border-white/10 flex justify-around p-2 pb-4 z-50 shadow-[0_-10px_40px_rgba(0,0,0,0.5)]">
+        <button onClick={() => setActiveTab('HOME')} className={`flex flex-col items-center gap-1 w-20 py-2 rounded-xl transition-all ${activeTab === 'HOME' ? 'text-blue-400 bg-blue-500/10' : 'text-slate-500 hover:text-slate-300'}`}>
+          <HomeIcon className="h-6 w-6" />
+          <span className="text-[10px] font-bold">Home</span>
+        </button>
+        <button onClick={() => setActiveTab('BILLING')} className={`flex flex-col items-center gap-1 w-20 py-2 rounded-xl transition-all ${activeTab === 'BILLING' ? 'text-blue-400 bg-blue-500/10' : 'text-slate-500 hover:text-slate-300'}`}>
+          <Zap className="h-6 w-6" />
+          <span className="text-[10px] font-bold">Billing</span>
+        </button>
+        <button onClick={() => setActiveTab('HISTORY')} className={`flex flex-col items-center gap-1 w-20 py-2 rounded-xl transition-all ${activeTab === 'HISTORY' ? 'text-blue-400 bg-blue-500/10' : 'text-slate-500 hover:text-slate-300'}`}>
+          <FileText className="h-6 w-6" />
+          <span className="text-[10px] font-bold">Logs</span>
+        </button>
+      </div>
+
     </div>
   );
 }
