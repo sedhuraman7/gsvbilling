@@ -177,7 +177,7 @@ export default function Home() {
     fetchSystem();
 
     const fetchTenants = async () => {
-      const { data } = await supabase.from('tenants').select('*');
+      const { data } = await supabase.from('tenants').select('*').eq('house_id', activeHouse);
       if (data) {
         const tMap: any = {};
         data.forEach(d => tMap[d.id] = { label: d.name, email: d.email, room_id: d.room_id, type: d.type, link_code: d.link_code });
@@ -187,7 +187,7 @@ export default function Home() {
     fetchTenants();
 
     const fetchHistory = async () => {
-      const { data } = await supabase.from('billing_history').select('*').order('created_at', { ascending: false });
+      const { data } = await supabase.from('billing_history').select('*').eq('house_id', activeHouse).order('created_at', { ascending: false });
       if (data) setBillingHistory(data);
     };
     fetchHistory();
