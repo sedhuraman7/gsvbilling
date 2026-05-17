@@ -10,8 +10,11 @@ import {
   Settings,
   Trash2,
   LogOut,
+  LogOut,
   Home as HomeIcon,
-  Plus
+  Plus,
+  Droplets,
+  Power
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -27,7 +30,8 @@ export default function Home() {
     active_meter: 1,
     total_runtime_today: 0,
     energy_kwh: 0,
-    unit_price: 7 // Default if not in DB
+    unit_price: 7,
+    water_level_pct: 0 // Default if not in DB
   });
 
   const [tenants, setTenants] = useState<any>({});
@@ -164,7 +168,8 @@ export default function Home() {
           active_meter: 1,
           total_runtime_today: 0,
           energy_kwh: data.power_w / 1000,
-          unit_price: 7
+          unit_price: 7,
+          water_level_pct: data.water_level_pct || 0
         });
         setLastUpdate(Date.now());
       }
@@ -198,7 +203,8 @@ export default function Home() {
           active_meter: 1,
           total_runtime_today: 0,
           energy_kwh: data.power_w / 1000,
-          unit_price: 7
+          unit_price: 7,
+          water_level_pct: data.water_level_pct || 0
         });
         setLastUpdate(Date.now());
       }).subscribe();
@@ -211,6 +217,17 @@ export default function Home() {
 
     return () => { supabase.removeChannel(sub); clearInterval(interval); };
   }, [router, lastUpdate]);
+
+  // MOTOR CONTROL
+  const toggleMotor = async () => {
+    const newCmd = systemData.motor_status === 'ON' ? 'MOTOR_OFF' : 'MOTOR_ON';
+    setSystemData(prev => ({ ...prev, motor_status: 'UPDATING...' }));
+    await supabase.from('commands').insert([{
+      action: newCmd,
+      mode: 'MANUAL',
+      processed: false
+    }]);
+  };
 
   // DELETE TENANT
   const handleDeleteTenant = async (chatId: string, name: string) => {
@@ -318,8 +335,8 @@ export default function Home() {
       <div className="flex flex-col md:flex-row justify-between items-center mb-8 gap-4 glass-panel text-white p-4 rounded-xl shadow-lg shadow-black/20 border border-white/10">
         <div>
           <h1 className="text-2xl font-extrabold flex items-center gap-2 text-white">
-            <Zap className="h-8 w-8 text-yellow-500 fill-yellow-500" />
-            Smart Grid: {houseId}
+            <Zap className="h-8 w-8 text-blue-500 fill-blue-500" />
+            AquaSync: {houseId}
           </h1>
           <p className="text-sm text-blue-300 mt-1 flex items-center gap-2 font-medium">
             <HomeIcon className="h-4 w-4" /> Managing: <span className="font-bold text-blue-600">{houseId}</span>
@@ -344,6 +361,52 @@ export default function Home() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+
+        {/* 0. AQUASYNC SENSORS (WATER LEVEL & MOTOR) */}
+        <div className="md:col-span-3 grid grid-cols-1 md:grid-cols-2 gap-6 mb-2">
+            
+            {/* WATER LEVEL */}
+            <div className="glass-panel text-white p-6 rounded-2xl shadow-lg border border-white/10 flex flex-col items-center justify-center relative overflow-hidden">
+                <div className="absolute top-0 right-0 p-16 bg-blue-500/10 rounded-full blur-2xl -mr-8 -mt-8 pointer-events-none"></div>
+                <h3 className="font-bold text-lg flex items-center gap-2 text-blue-100 self-start mb-6">
+                    <Droplets className="h-5 w-5 text-blue-400" /> Water Level
+                </h3>
+                
+                <div className="relative flex items-center justify-center w-40 h-40">
+                    <svg className="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
+                        <circle cx="50" cy="50" r="45" fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth="8" />
+                        <circle cx="50" cy="50" r="45" fill="none" stroke="currentColor" strokeWidth="8" strokeDasharray="283" strokeDashoffset={283 - (283 * systemData.water_level_pct) / 100} className="text-blue-500 drop-shadow-[0_0_10px_rgba(59,130,246,0.5)] transition-all duration-1000 ease-out" />
+                    </svg>
+                    <div className="absolute text-3xl font-extrabold text-white drop-shadow-md">
+                        {systemData.water_level_pct}%
+                    </div>
+                </div>
+            </div>
+
+            {/* MOTOR CONTROL */}
+            <div className="glass-panel text-white p-6 rounded-2xl shadow-lg border border-white/10 flex flex-col items-center justify-center relative overflow-hidden">
+                <div className="absolute bottom-0 left-0 p-16 bg-indigo-500/10 rounded-full blur-2xl -ml-8 -mb-8 pointer-events-none"></div>
+                <h3 className="font-bold text-lg flex items-center gap-2 text-blue-100 self-start mb-6">
+                    <Power className="h-5 w-5 text-indigo-400" /> Motor Control
+                </h3>
+                
+                <button 
+                    onClick={toggleMotor}
+                    disabled={systemData.motor_status === 'UPDATING...'}
+                    className={`relative w-40 h-40 rounded-full flex flex-col items-center justify-center transition-all duration-300 ${
+                        systemData.motor_status === 'ON' 
+                        ? 'bg-blue-600/20 border-4 border-blue-500 shadow-[0_0_30px_rgba(59,130,246,0.3)]' 
+                        : systemData.motor_status === 'UPDATING...' 
+                        ? 'bg-slate-800/50 border-4 border-slate-600'
+                        : 'bg-transparent border-4 border-red-500 shadow-[0_0_20px_rgba(239,68,68,0.2)]'
+                    } group hover:scale-105 active:scale-95 disabled:opacity-50 disabled:pointer-events-none`}
+                >
+                    <Power className={`h-10 w-10 mb-2 ${systemData.motor_status === 'ON' ? 'text-blue-400' : 'text-red-400'}`} />
+                    <span className="text-2xl font-extrabold text-white tracking-widest">{systemData.motor_status}</span>
+                </button>
+                <p className="text-xs text-blue-300 mt-6 bg-black/20 px-4 py-1.5 rounded-full border border-white/5">Tap to override ESP32</p>
+            </div>
+        </div>
 
         {/* 1. TENANT LIST */}
         <div className="md:col-span-2 glass-panel text-white p-6 rounded-2xl shadow-lg shadow-black/20 border border-white/10">
