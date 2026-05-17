@@ -1,8 +1,7 @@
 
 import { NextResponse } from 'next/server';
 import TelegramBot from 'node-telegram-bot-api';
-import { db } from '@/lib/firebase'; // Ensure this points to your client config
-import { ref, get, update, child } from "firebase/database";
+import { supabase } from '@/lib/supabase';
 
 // Initialize Bot
 // FORCE VALID TOKEN (Bypassing potential stale Env Var on Vercel)
@@ -46,52 +45,29 @@ export async function POST(request: Request) {
 
             console.log(`User ${chatId} joining with code: ${inputCode}`);
 
-            // SEARCH FIREBASE (Replicated Logic)
-            const dbRef = ref(db);
-            const allHousesSnap = await get(child(dbRef, 'houses'));
+            // SEARCH SUPABASE
+            const { data: tenants, error } = await supabase.from('tenants').select('*').eq('link_code', inputCode);
 
-            if (!allHousesSnap.exists()) {
-                await bot.sendMessage(chatId, "❌ System Error: No houses found.");
-                return NextResponse.json({ status: 'no_data' });
-            }
-
-            const allHouses = allHousesSnap.val();
-            let foundUser = null;
-            let foundHouseId = null;
-            let foundUserId = null;
-
-            // Deep Search
-            for (const houseId in allHouses) {
-                const tenants = allHouses[houseId].tenants || {};
-                for (const userId in tenants) {
-                    if (String(tenants[userId].link_code) === inputCode) {
-                        foundUser = tenants[userId];
-                        foundHouseId = houseId;
-                        foundUserId = userId;
-                        break;
-                    }
-                }
-                if (foundUser) break;
-            }
-
-            if (foundUser) {
-                // UPDATE FIREBASE
-                const userRef = child(dbRef, `houses/${foundHouseId}/tenants/${foundUserId}`);
-                await update(userRef, {
-                    chatId: chatId,
-                    type: 'LINKED_USER',
-                    link_code: null // Optional: Clear code
-                });
-
-                await bot.sendMessage(chatId, `✅ Connected! Hello ${foundUser.label}. Alerts Enabled.`);
-                console.log(`✅ Linked ${foundUser.label} to ChatID ${chatId}`);
-            } else {
+            if (error || !tenants || tenants.length === 0) {
                 if (inputCode.includes("HOUSE_")) {
                     await bot.sendMessage(chatId, "⚠️ Try asking Owner for the 4-digit Link Code from Dashboard.");
                 } else {
                     await bot.sendMessage(chatId, "❌ Invalid 4-Digit Code.");
                 }
+                return NextResponse.json({ status: 'not_found' });
             }
+
+            const foundUser = tenants[0];
+
+            // UPDATE SUPABASE
+            await supabase.from('tenants').update({
+                chat_id: String(chatId),
+                type: 'LINKED_USER',
+                link_code: null // Clear code
+            }).eq('id', foundUser.id);
+
+            await bot.sendMessage(chatId, `✅ Connected! Hello ${foundUser.name}. Alerts Enabled.`);
+            console.log(`✅ Linked ${foundUser.name} to ChatID ${chatId}`);
         }
 
         return NextResponse.json({ status: 'success' });
