@@ -10,7 +10,6 @@ import {
   Settings,
   Trash2,
   LogOut,
-  LogOut,
   Home as HomeIcon,
   Plus,
   Droplets,
