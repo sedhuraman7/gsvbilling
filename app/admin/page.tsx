@@ -1,8 +1,7 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { db } from '@/lib/firebase';
-import { ref, set, onValue } from "firebase/database";
+import { supabase } from '@/lib/supabase';
 import { Lock, LayoutGrid, PlusCircle, ShieldAlert, Trash2 } from 'lucide-react';
 
 export default function SuperAdmin() {
@@ -21,21 +20,12 @@ export default function SuperAdmin() {
 
     // FETCH ALL HOUSES
     useEffect(() => {
-        const housesRef = ref(db, 'houses');
-        const unsub = onValue(housesRef, (snapshot) => {
-            if (snapshot.exists()) {
-                const data = snapshot.val();
-                // Convert object to array for display
-                const houseList = Object.keys(data).map(key => ({
-                    id: key,
-                    ...data[key]?.config // Access config node
-                }));
-                setHouses(houseList);
-            } else {
-                setHouses([]);
-            }
-        });
-        return () => unsub();
+        const fetchHouses = async () => {
+            const { data } = await supabase.from('houses').select('*');
+            if (data) setHouses(data);
+            else setHouses([]);
+        };
+        fetchHouses();
     }, []);
 
     const handleLogin = (e: React.FormEvent) => {
@@ -56,35 +46,22 @@ export default function SuperAdmin() {
         };
 
         try {
-            // Save config
-            await set(ref(db, `houses/${houseId}/config`), houseData);
+            const { error } = await supabase.from('houses').insert([{
+                id: houseId,
+                owner_email: ownerEmail,
+                owner_pass: ownerPass,
+                device_id: deviceId || 'MAC_UNKNOWN'
+            }]);
 
-            // SAVE DEVICE BINDING (For ESP32 to find House ID)
-            const cleanMac = (deviceId || '').replace(/:/g, ''); // Ensure format matches ESP32 processing
-            if (cleanMac && cleanMac !== 'MAC_UNKNOWN') {
-                await set(ref(db, `devices/${cleanMac}/houseId`), houseId);
-            }
+            if (error) throw error;
 
-            // Initialize system status
-            await set(ref(db, `houses/${houseId}/system_status`), {
-                voltage: 0, current: 0, power: 0, energy_kwh: 0, active_meter: 1
-            });
-
-            // SEND EMAIL to Owner
-            try {
-                await fetch('/api/welcome-owner', {
-                    method: 'POST',
-                    body: JSON.stringify({
-                        email: ownerEmail,
-                        password: ownerPass,
-                        houseId: houseId,
-                        deviceId: deviceId || 'MAC_UNKNOWN'
-                    })
-                });
-            } catch (err) { console.error("Email API Failed (Non-critical)", err); }
-
-            alert(`✅ House ${houseId} Created! Device ID: ${houseData.device_id}\n📧 Welcome Email Sent!`);
+            alert(`✅ House ${houseId} Created in Supabase!`);
             setHouseId(''); setOwnerEmail(''); setOwnerPass(''); setDeviceId('');
+            
+            // Refresh list
+            const { data } = await supabase.from('houses').select('*');
+            if (data) setHouses(data);
+            
         } catch (error) {
             alert("Failed to create house");
         }
@@ -96,10 +73,12 @@ export default function SuperAdmin() {
         if (!confirm(`⚠️ Confirm DELETE House: ${id}?\n\nCannot be undone.`)) return;
 
         try {
-            await set(ref(db, `houses/${id}`), null);
+            await supabase.from('houses').delete().eq('id', id);
             alert(`🗑️ House ${id} Deleted.`);
-            // Refresh logic handled by onValue
-        } catch (e) { alert("Delete failed. Check console/permissions."); console.error(e); }
+            // Refresh logic
+            const { data } = await supabase.from('houses').select('*');
+            if (data) setHouses(data);
+        } catch (e) { alert("Delete failed."); }
     };
 
     if (!isAdmin) {
