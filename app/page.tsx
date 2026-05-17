@@ -2,8 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { db } from '@/lib/firebase';
-import { ref, onValue, set } from 'firebase/database';
+import { supabase } from '@/lib/supabase';
 import {
   Zap,
   Activity,
@@ -154,41 +153,63 @@ export default function Home() {
     }
     setHouseId(activeHouse);
 
-    const dataRef = ref(db, `houses/${activeHouse}/system_status`);
-    const unsubSystem = onValue(dataRef, (snapshot) => {
-      if (snapshot.exists()) {
-        const val = snapshot.val();
-        setSystemData(prev => ({ ...prev, ...val }));
-        setLastUpdate(Date.now()); // Update heartbeat
+    // Supabase System Status / Sensor Data
+    const fetchSystem = async () => {
+      const { data } = await supabase.from('sensor_data').select('*').order('created_at', { ascending: false }).limit(1).single();
+      if (data) {
+        setSystemData({
+          voltage: data.voltage,
+          current: data.current_amps,
+          motor_status: data.motor_state,
+          active_meter: 1,
+          total_runtime_today: 0,
+          energy_kwh: data.power_w / 1000,
+          unit_price: 7
+        });
+        setLastUpdate(Date.now());
       }
-    });
+    };
+    fetchSystem();
 
-    const userRef = ref(db, `houses/${activeHouse}/tenants`);
-    const unsubUser = onValue(userRef, (snapshot) => {
-      if (snapshot.exists()) setTenants(snapshot.val());
-      else setTenants({});
-    });
+    const fetchTenants = async () => {
+      const { data } = await supabase.from('tenants').select('*');
+      if (data) {
+        const tMap: any = {};
+        data.forEach(d => tMap[d.id] = { label: d.name, email: d.email, room_id: d.room_id, type: d.type, link_code: d.link_code });
+        setTenants(tMap);
+      }
+    };
+    fetchTenants();
 
-    const historyRef = ref(db, `houses/${activeHouse}/billing_history`);
-    const unsubHistory = onValue(historyRef, (snapshot) => {
-      // ... (existing history logic)
-      if (snapshot.exists()) {
-        const data = snapshot.val();
-        const list = Object.values(data).reverse();
-        setBillingHistory(list);
-      } else setBillingHistory([]);
-    });
+    const fetchHistory = async () => {
+      const { data } = await supabase.from('billing_history').select('*').order('created_at', { ascending: false });
+      if (data) setBillingHistory(data);
+    };
+    fetchHistory();
 
-    // Heartbeat Checker (Increased Tolerance to 25s)
+    // Supabase Realtime subscriptions
+    const sub = supabase.channel('public:sensor_data')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'sensor_data' }, (payload) => {
+        const data = payload.new;
+        setSystemData({
+          voltage: data.voltage,
+          current: data.current_amps,
+          motor_status: data.motor_state,
+          active_meter: 1,
+          total_runtime_today: 0,
+          energy_kwh: data.power_w / 1000,
+          unit_price: 7
+        });
+        setLastUpdate(Date.now());
+      }).subscribe();
+
+    // Heartbeat Checker
     const interval = setInterval(() => {
-      if (Date.now() - lastUpdate > 25000) {
-        setConnected(false);
-      } else {
-        setConnected(true);
-      }
+      if (Date.now() - lastUpdate > 25000) setConnected(false);
+      else setConnected(true);
     }, 1000);
 
-    return () => { unsubSystem(); unsubUser(); unsubHistory(); clearInterval(interval); };
+    return () => { supabase.removeChannel(sub); clearInterval(interval); };
   }, [router, lastUpdate]);
 
   // DELETE TENANT
@@ -218,19 +239,16 @@ export default function Home() {
     };
 
     try {
-      await set(ref(db, `houses/${houseId}/tenants/${manualId}`), newTenant);
-      await fetch('/api/welcome', {
-        method: 'POST',
-        body: JSON.stringify({
-          email: newTenantEmail,
-          name: newTenantName,
-          houseId: houseId,
-          linkCode: linkCode,
-          address: newTenantRoom
-        })
-      });
+      await supabase.from('tenants').insert([{
+        house_id: houseId,
+        name: newTenantName,
+        email: newTenantEmail,
+        room_id: newTenantRoom || 'N/A',
+        link_code: String(linkCode),
+        type: 'EMAIL_ONLY'
+      }]);
       setNewTenantName(''); setNewTenantEmail(''); setNewTenantRoom(''); setShowAddForm(false);
-      alert(`✅ Added! Welcome Email Sent.`);
+      alert(`✅ Added to Supabase!`);
     } catch (e) { alert("Failed to add tenant"); }
   };
 
@@ -256,19 +274,17 @@ export default function Home() {
 
     setLoading(true);
     try {
-      const res = await fetch('/api/actions/generate-bill', {
-        method: 'POST',
-        body: JSON.stringify({
-          totalAmount: Number(billableAmount), // Send the SPLITTABLE amount
-          month: currentMonth,
-          houseId: houseId,
-          includeOwner: includeOwner
-        })
-      });
-      const data = await res.json();
-      if (data.success) alert(`✅ Bill Sent! Logs: \n${JSON.stringify(data.logs)}`);
-      else alert('❌ Failed: ' + data.error);
-    } catch (e) { console.error(e); alert('Error sending bill'); }
+      const { error } = await supabase.from('billing_history').insert([{
+        house_id: houseId,
+        month: currentMonth,
+        total_amount: Number(billableAmount),
+        split_amount: Number(uiSplitAmount),
+        active_tenants: tenantCount
+      }]);
+      
+      if (!error) alert(`✅ Bill Saved to Supabase History!`);
+      else alert('❌ Failed: ' + error.message);
+    } catch (e) { console.error(e); alert('Error saving bill'); }
     setLoading(false);
   };
 
