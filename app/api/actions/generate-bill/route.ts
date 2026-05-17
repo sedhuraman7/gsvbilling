@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
-import { db } from '@/lib/firebase';
-import { ref, get, child } from "firebase/database";
+import { supabase } from '@/lib/supabase';
 import { sendEmail } from '@/lib/email';
 import TelegramBot from 'node-telegram-bot-api';
 
@@ -14,12 +13,16 @@ export async function POST(request: Request) {
         const { totalAmount, month, houseId, includeOwner } = body;
 
         // 0. Fetch Settings from Database
-        const dbRef = ref(db);
         const targetHouseId = houseId || 'HOUSE_001';
-        const usersSnap = await get(child(dbRef, `houses/${targetHouseId}/tenants`));
+        
+        const { data: usersData } = await supabase.from('tenants').select('*').eq('house_id', targetHouseId);
 
         let users: any = {};
-        if (usersSnap.exists()) users = usersSnap.val();
+        if (usersData) {
+            usersData.forEach((t: any) => {
+                users[t.id] = { label: t.name, email: t.email, chatId: t.chat_id, link_code: t.link_code };
+            });
+        }
 
         // Calculate Split based on ACTIVE users count + Owner if selected
         const tenantCount = Object.keys(users).length || 1;

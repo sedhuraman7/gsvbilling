@@ -282,7 +282,20 @@ export default function Home() {
         active_tenants: tenantCount
       }]);
       
-      if (!error) alert(`✅ Bill Saved to Supabase History!`);
+      if (!error) {
+          // Send Emails & Telegrams
+          const res = await fetch('/api/actions/generate-bill', {
+            method: 'POST',
+            body: JSON.stringify({
+              totalAmount: Number(billableAmount),
+              month: currentMonth,
+              houseId: houseId,
+              includeOwner: includeOwner
+            })
+          });
+          const data = await res.json();
+          alert(`✅ Bill Saved to History & Sent via Email! Logs: \n${JSON.stringify(data.logs || [])}`);
+      }
       else alert('❌ Failed: ' + error.message);
     } catch (e) { console.error(e); alert('Error saving bill'); }
     setLoading(false);
