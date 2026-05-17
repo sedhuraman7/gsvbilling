@@ -35,6 +35,7 @@ export default function Home() {
 
   const [tenants, setTenants] = useState<any>({});
   const [billingHistory, setBillingHistory] = useState<any[]>([]);
+  const [motorLogs, setMotorLogs] = useState<any[]>([]);
   const [connected, setConnected] = useState(false);
   const [loading, setLoading] = useState(false);
 
@@ -191,6 +192,12 @@ export default function Home() {
     };
     fetchHistory();
 
+    const fetchMotorLogs = async () => {
+      const { data } = await supabase.from('motor_logs').select('*').order('created_at', { ascending: false }).limit(5);
+      if (data) setMotorLogs(data);
+    };
+    fetchMotorLogs();
+
     // Supabase Realtime subscriptions
     const sub = supabase.channel('public:sensor_data')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'sensor_data' }, (payload) => {
@@ -208,13 +215,18 @@ export default function Home() {
         setLastUpdate(Date.now());
       }).subscribe();
 
+    const logsSub = supabase.channel('public:motor_logs')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'motor_logs' }, (payload) => {
+        setMotorLogs(prev => [payload.new, ...prev].slice(0, 5));
+      }).subscribe();
+
     // Heartbeat Checker
     const interval = setInterval(() => {
       if (Date.now() - lastUpdate > 25000) setConnected(false);
       else setConnected(true);
     }, 1000);
 
-    return () => { supabase.removeChannel(sub); clearInterval(interval); };
+    return () => { supabase.removeChannel(sub); supabase.removeChannel(logsSub); clearInterval(interval); };
   }, [router, lastUpdate]);
 
   // MOTOR CONTROL
@@ -661,6 +673,42 @@ export default function Home() {
                     <td className="px-4 py-3 text-blue-300">{h.active_tenants} Active</td>
                     <td className="px-4 py-3 text-right font-bold text-blue-600">₹{h.split_amount}</td>
                     <td className="px-4 py-3 text-right text-xs text-blue-300">{new Date(h.generated_at).toLocaleString()}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* 5. MOTOR LOGS */}
+        <div className="md:col-span-3 glass-panel text-white p-6 rounded-2xl shadow-lg shadow-black/20 border border-white/10 mt-6">
+          <h3 className="font-bold text-lg flex items-center gap-2 text-blue-100 mb-4">
+            <Power className="h-5 w-5 text-indigo-400" /> Motor Activity History
+          </h3>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm text-left">
+              <thead className="bg-transparent text-white text-xs text-blue-300 uppercase border-b border-white/10">
+                <tr>
+                  <th className="px-4 py-3">Time</th>
+                  <th className="px-4 py-3">State</th>
+                  <th className="px-4 py-3">Reason / Action</th>
+                  <th className="px-4 py-3 text-right">Triggered By</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100/10">
+                {motorLogs.length === 0 && (
+                  <tr><td colSpan={4} className="text-center py-4 text-blue-300">No recent motor logs found.</td></tr>
+                )}
+                {motorLogs.map((log: any, i) => (
+                  <tr key={i} className="hover:bg-white/5 transition-colors">
+                    <td className="px-4 py-3 text-blue-200 text-xs">{new Date(log.created_at).toLocaleString()}</td>
+                    <td className="px-4 py-3">
+                      <span className={`px-2 py-1 rounded text-xs font-bold ${log.motor_state === 'ON' ? 'bg-blue-500/20 text-blue-400' : 'bg-red-500/20 text-red-400'}`}>
+                        {log.motor_state}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-blue-100">{log.reason || 'System Action'}</td>
+                    <td className="px-4 py-3 text-right text-xs font-mono text-blue-400">{log.triggered_by || 'ESP32'}</td>
                   </tr>
                 ))}
               </tbody>
