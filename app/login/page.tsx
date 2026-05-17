@@ -36,7 +36,7 @@ export default function Login() {
                         sessionStorage.setItem('role', 'OWNER');
                         router.push('/');
                     } else {
-                        setError(`Password Wrong. (DB expects: ${data.owner_pass})`);
+                        setError('Invalid Password!');
                     }
                 } else {
                     setError(`House ID '${houseId.toUpperCase()}' Not Found in DB.`);
